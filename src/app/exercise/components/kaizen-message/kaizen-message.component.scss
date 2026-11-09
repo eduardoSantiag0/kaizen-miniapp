@@ -1,0 +1,36 @@
+.kz-message {
+  margin: 14px 16px 0;
+  display: flex;
+  gap: 10px;
+}
+
+.kz-message-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+.kz-message-title {
+  margin: 0;
+  font: 600 18px/1.2 'IBM Plex Sans', sans-serif;
+  color: var(--kz-ink);
+
+  &--pine {
+    color: var(--kz-pine);
+  }
+
+  &--shu {
+    color: var(--kz-shu);
+  }
+
+  &--emphasized {
+    font-size: 24px;
+  }
+}
+
+.kz-message-body {
+  margin: 2px 0 0;
+  font: 400 14px/20px 'IBM Plex Sans', sans-serif;
+  color: var(--kz-ink);
+}

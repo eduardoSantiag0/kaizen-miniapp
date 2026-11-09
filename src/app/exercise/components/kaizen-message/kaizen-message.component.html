@@ -1,0 +1,14 @@
+<div class="kz-message">
+  <img class="kz-message-avatar" src="/assets/kaizen-avatar@2x.png" alt="" width="36" height="36" />
+  <div class="kz-message-text">
+    <p
+      class="kz-message-title"
+      role="status"
+      [class]="'kz-message-title--' + tone()"
+      [class.kz-message-title--emphasized]="emphasized()"
+    >
+      {{ title() }}
+    </p>
+    <p class="kz-message-body">{{ body() }}</p>
+  </div>
+</div>

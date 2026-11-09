@@ -1,0 +1,25 @@
+.kz-tools {
+  display: flex;
+  gap: 8px;
+  margin: 12px 8px 0;
+}
+
+.kz-tool-btn {
+  flex: 1 1 0;
+  height: 44px;
+  min-width: 44px;
+  border-radius: 3px;
+  border: 1px solid var(--kz-rule);
+  background: transparent;
+  color: var(--kz-ink);
+  font: 500 15px/1 'IBM Plex Sans', sans-serif;
+
+  &--on {
+    border-color: var(--kz-primary);
+    background: var(--kz-pressed-bg);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+  }
+}

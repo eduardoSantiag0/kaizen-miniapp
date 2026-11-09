@@ -1,0 +1,123 @@
+/* HANDOFF.md section 3, "Board" — Kaya is the default board for the Exercise screen. */
+
+kz-goban-adapter {
+  display: block;
+}
+
+/* Locked while the board shouldn't accept taps (opponent replying, a wrong move showing, line done). */
+kz-goban-adapter.kz-goban-adapter--locked {
+  pointer-events: none;
+  opacity: 0.85;
+}
+
+.kz-board .shudan-goban {
+  --shudan-board-border-width: 0;
+  --shudan-board-background-color: #dcae5e;
+  --shudan-board-foreground-color: rgba(28, 22, 12, 0.85);
+  --shudan-black-background-color: #1e1d1f;
+  --shudan-white-background-color: #e0d3b8;
+}
+
+.kz-board .shudan-goban-image {
+  background: var(--shudan-board-background-color);
+  position: relative;
+}
+
+.kz-board .shudan-goban-image::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url('/assets/board-grain.jpg');
+  background-size: cover;
+  mix-blend-mode: multiply;
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.kz-board .shudan-coordx span,
+.kz-board .shudan-coordy span {
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 500;
+  color: rgba(28, 22, 12, 0.82);
+}
+
+/* Stones: HANDOFF's radial gradients, replacing Shudan's bundled flat SVGs. */
+.kz-board .shudan-stone-image.shudan-sign_1 {
+  background-image: none;
+  background: radial-gradient(circle at 32% 28%, #4a4a4e 0%, #1e1d1f 32%, #121113 100%);
+  box-shadow: 0 1.5px 0 rgba(0, 0, 0, 0.35);
+  border-radius: 50%;
+}
+
+.kz-board .shudan-stone-image.shudan-sign_-1 {
+  background-image: none;
+  background: radial-gradient(circle at 32% 28%, #ffffff 0%, #f4ecda 45%, #e0d3b8 100%);
+  box-shadow:
+    inset 0 0 0 1.2px rgba(30, 26, 20, 0.85),
+    0 1.5px 0 rgba(0, 0, 0, 0.25);
+  border-radius: 50%;
+}
+
+.kz-board .shudan-vertex:not(.shudan-sign_0) .shudan-stone::before {
+  display: none; /* replaced by the box-shadow above */
+}
+
+/* Last move: vermilion dot, 34% of the stone's diameter. */
+.kz-board .shudan-vertex.kz-last-move .shudan-stone::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 34%;
+  height: 34%;
+  border-radius: 50%;
+  background: var(--kz-vermilion, #d9472b);
+  transform: translate(-50%, -50%);
+  z-index: 3;
+}
+
+/* Illegal move: dashed 2px ring on an empty point. */
+.kz-board .shudan-vertex.kz-illegal::after {
+  content: '';
+  position: absolute;
+  inset: 8%;
+  box-sizing: border-box;
+  border: 2px dashed var(--kz-wrong-ring, #b8361f);
+  border-radius: 50%;
+  z-index: 4;
+}
+
+/* Hint: solid ring on the next correct (empty) point. */
+.kz-board .shudan-vertex.kz-hint::after {
+  content: '';
+  position: absolute;
+  inset: 8%;
+  box-sizing: border-box;
+  border: 1.5px solid #1f3a5f;
+  background: rgba(31, 58, 95, 0.25);
+  border-radius: 50%;
+  z-index: 4;
+}
+
+/* Wrong move: the stone stays, with a ring and a cross. */
+.kz-board .shudan-vertex.kz-wrong .shudan-stone::before {
+  display: block;
+  box-shadow: 0 0 0 2px var(--kz-wrong-ring, #b8361f);
+  border-radius: 50%;
+}
+
+.kz-board .shudan-vertex.kz-wrong .shudan-stone::after {
+  content: '\2715';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--kz-vermilion, #d9472b);
+  font-size: 60%;
+  z-index: 4;
+}
+
+/* Preview stone: 55% opacity. */
+.kz-board .shudan-vertex.kz-preview .shudan-stone {
+  opacity: 0.55;
+}

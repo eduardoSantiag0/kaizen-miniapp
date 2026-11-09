@@ -1,0 +1,6 @@
+{
+  "name": "jschardet",
+  "version": "1.0.0",
+  "description": "Browser-build stub standing in for the real jschardet, which @sabaki/sgf only uses inside its Node-only buffer-encoding detection path (this app always calls sgf.parse(text), never that path). Installed over the real nested package by scripts/stub-sgf-node-deps.js (see package.json's postinstall).",
+  "main": "index.js"
+}

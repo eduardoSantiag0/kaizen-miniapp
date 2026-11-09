@@ -1,0 +1,14 @@
+:host {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-image: image-set(
+    url('/assets/washi-light.jpg') 1x
+  );
+  background-size: cover;
+  object-fit: cover;
+}
+
+:host-context([data-theme='dark']) {
+  background-image: image-set(url('/assets/washi-night.jpg') 1x);
+}

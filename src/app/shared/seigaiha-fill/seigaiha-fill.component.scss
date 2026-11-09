@@ -1,0 +1,16 @@
+:host {
+  display: block;
+  flex: 1 1 auto;
+  min-height: 48px;
+  background-image: url('/assets/seigaiha-light.jpg');
+  background-position: bottom;
+  background-repeat: no-repeat;
+  background-size: cover;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.55) 45%, #000 100%);
+  mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.55) 45%, #000 100%);
+  padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+}
+
+:host-context([data-theme='dark']) {
+  background-image: url('/assets/seigaiha-night.jpg');
+}

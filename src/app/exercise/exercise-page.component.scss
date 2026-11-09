@@ -1,0 +1,9 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  max-width: 390px;
+  margin: 0 auto;
+  /* Telegram's own chrome (e.g. its header in iOS expanded mode) can overlap the WebView's top — see SafeAreaService. */
+  padding-top: var(--kz-content-safe-top, 0px);
+}

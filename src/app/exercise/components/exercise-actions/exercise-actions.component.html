@@ -1,0 +1,26 @@
+<div class="kz-actions">
+  @let current = actions();
+  @switch (current.kind) {
+    @case ('preview') {
+      <button type="button" class="kz-btn kz-btn--outline" (click)="cancel.emit()" aria-label="Cancel">✕</button>
+      <button type="button" class="kz-btn kz-btn--primary" (click)="play.emit()">
+        Play {{ current.coord }}
+      </button>
+    }
+    @case ('tryAgain') {
+      <button type="button" class="kz-btn kz-btn--primary" (click)="tryAgain.emit()">Try again</button>
+    }
+    @case ('correct') {
+      <button type="button" class="kz-btn kz-btn--outline kz-btn--half" (click)="playAgain.emit()">Play again</button>
+      <button type="button" class="kz-btn kz-btn--primary kz-btn--half" (click)="doneSecondary.emit()">
+        {{ correctSecondaryLabel() }}
+      </button>
+    }
+    @case ('loading') {
+      <button type="button" class="kz-btn kz-btn--disabled" disabled>Loading…</button>
+    }
+    @case ('backToGames') {
+      <button type="button" class="kz-btn kz-btn--primary" (click)="backToGames.emit()">Back to games</button>
+    }
+  }
+</div>

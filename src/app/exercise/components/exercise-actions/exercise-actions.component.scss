@@ -1,0 +1,47 @@
+.kz-actions {
+  /* Sticky so the primary action stays within thumb reach regardless of scroll
+     position (Mobile-UX call: keep the ~470px zoomed board's touch-target size
+     from HANDOFF.md as-is, fix reachability here instead). */
+  position: sticky;
+  bottom: 0;
+  z-index: 2; /* above kz-seigaiha-fill, which paints after it in DOM order */
+  background: var(--kz-base);
+  margin: 12px 16px 0;
+  display: flex;
+  gap: 8px;
+  /* Belt-and-suspenders: the bottom safe area shouldn't depend on the decorative
+     seigaiha illustration staying exactly as-is underneath these buttons. */
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.kz-btn {
+  height: 52px;
+  border-radius: 3px;
+  font: 700 17px/1 'IBM Plex Sans', sans-serif;
+  border: 1px solid transparent;
+
+  &--primary {
+    flex: 1 1 auto;
+    background: var(--kz-primary);
+    color: var(--kz-on-primary);
+  }
+
+  &--outline {
+    background: transparent;
+    border-color: var(--kz-rule);
+    color: var(--kz-ink);
+    min-width: 52px;
+    flex: 0 0 auto;
+  }
+
+  &--half {
+    flex: 1 1 50%;
+    font-size: 16px;
+  }
+
+  &--disabled {
+    flex: 1 1 auto;
+    background: var(--kz-disabled-bg);
+    color: var(--kz-hint);
+  }
+}

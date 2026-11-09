@@ -1,0 +1,6 @@
+{
+  "name": "fs",
+  "version": "1.0.0",
+  "description": "Browser-build stub for the 'fs' Node builtin, which @sabaki/sgf's parse.js requires unconditionally at the top of the file but only calls inside parseFile() — a code path this app never uses (it only calls sgf.parse(text)). Declared as a plain top-level dependency in package.json so Angular's esbuild builder resolves it via node_modules instead of failing to find a Node builtin in a browser build.",
+  "main": "index.js"
+}

@@ -1,0 +1,47 @@
+@use './app/board/goban-theme.scss';
+
+/* Fallback tokens, overwritten by ThemeService as soon as it applies Telegram's colour scheme. */
+:root {
+  --kz-base: #0f1b2d;
+  --kz-ink: #f1e6cc;
+  --kz-hint: #a7b3c4;
+  --kz-rule: rgba(241, 230, 204, 0.28);
+  --kz-rule-list: rgba(241, 230, 204, 0.18);
+  --kz-primary: #e0b45a;
+  --kz-on-primary: #1c1a17;
+  --kz-pressed-bg: rgba(224, 180, 90, 0.16);
+  --kz-disabled-bg: rgba(241, 230, 204, 0.08);
+  --kz-shu: #ee7253;
+  --kz-pine: #6cc09d;
+  --kz-vermilion: #d9472b;
+  --kz-wrong-ring: #b8361f;
+
+  /* Telegram's own chrome overlapping the WebView (e.g. its header in iOS expanded mode) — overwritten by SafeAreaService. */
+  --kz-content-safe-top: 0px;
+  --kz-content-safe-bottom: 0px;
+  --kz-content-safe-left: 0px;
+  --kz-content-safe-right: 0px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--kz-base);
+  color: var(--kz-ink);
+  font-family: 'IBM Plex Sans', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+img {
+  display: block;
+}

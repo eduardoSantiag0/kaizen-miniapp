@@ -1,0 +1,70 @@
+.kz-context {
+  padding: 12px 16px 14px;
+}
+
+.kz-turn-line {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font: 600 20px/26px 'IBM Plex Sans', sans-serif;
+  letter-spacing: -0.015em;
+  color: var(--kz-ink);
+}
+
+.kz-meta-line {
+  margin: 2px 0 0;
+  font: 400 13px/18px 'IBM Plex Sans', sans-serif;
+  color: var(--kz-hint);
+}
+
+.kz-progress {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+}
+
+.kz-progress-node {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  box-sizing: border-box;
+
+  &--done {
+    background: var(--kz-ink);
+  }
+
+  &--current {
+    border: 1.5px solid var(--kz-ink);
+    position: relative;
+
+    &::after {
+      content: '';
+      position: absolute;
+      inset: 25%;
+      border-radius: 50%;
+      background: var(--kz-ink);
+    }
+  }
+
+  &--ahead {
+    border: 1.5px solid var(--kz-hint);
+  }
+}
+
+.kz-progress-line {
+  flex: 1 1 auto;
+  height: 1px;
+  background: var(--kz-ink);
+
+  &--ahead {
+    background: var(--kz-rule);
+  }
+}
+
+.kz-step-label {
+  margin-left: 8px;
+  font: 400 12px/1 'IBM Plex Mono', monospace;
+  color: var(--kz-hint);
+  white-space: nowrap;
+}

@@ -1,0 +1,46 @@
+<kz-paper-background />
+
+<div class="kz-exercise-page">
+  <kz-exercise-context
+    [turnText]="turnText()"
+    [turnSign]="turnSign()"
+    [metaText]="metaText()"
+    [step]="state().step"
+    [totalSteps]="state().totalSteps"
+    [showProgress]="state().screen === 'ready'"
+  />
+
+  @let exerciseLine = line();
+  @if (exerciseLine && state().screen === 'ready') {
+    <kz-goban-view [state]="state()" [line]="exerciseLine" (vertexTap)="onVertexTap($event)" />
+
+    <kz-exercise-tools
+      [hintOn]="state().hintOn"
+      [zoomedIn]="state().zoomedIn"
+      [zoomDisabled]="zoomDisabled()"
+      (hintToggle)="onHintToggle()"
+      (reset)="onReset()"
+      (zoomToggle)="onZoomToggle()"
+    />
+  }
+
+  <kz-kaizen-message
+    [title]="message().title"
+    [body]="message().body"
+    [tone]="message().tone"
+    [emphasized]="message().emphasized"
+  />
+
+  <kz-exercise-actions
+    [actions]="actions()"
+    [correctSecondaryLabel]="correctSecondaryLabel()"
+    (play)="play()"
+    (cancel)="cancel()"
+    (tryAgain)="onTryAgain()"
+    (playAgain)="onReset()"
+    (backToGames)="backToGames()"
+    (doneSecondary)="onDoneSecondary()"
+  />
+
+  <kz-seigaiha-fill />
+</div>
