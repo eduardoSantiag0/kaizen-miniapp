@@ -45,6 +45,10 @@ export const WASHI_LIGHT: ThemeTokens = {
 export const SHARED_TOKENS = {
   vermilion: '#D9472B',
   wrongRing: '#B8361F',
+  /** Yoru's own `primary` gold, lifted into a cross-theme constant: Washi's
+   *  `primary` is indigo, so `--kz-primary` itself would go cold/blue in
+   *  light theme for this one celebratory use (the success vignette glow). */
+  glowGold: '#E0B45A',
 };
 
 export function tokensFor(colorScheme: 'light' | 'dark'): ThemeTokens {
@@ -72,5 +76,6 @@ export function toCssVariables(tokens: ThemeTokens): Record<string, string> {
   }
   result['--kz-vermilion'] = SHARED_TOKENS.vermilion;
   result['--kz-wrong-ring'] = SHARED_TOKENS.wrongRing;
+  result['--kz-glow-gold'] = SHARED_TOKENS.glowGold;
   return result;
 }

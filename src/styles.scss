@@ -21,6 +21,10 @@
   --kz-content-safe-bottom: 0px;
   --kz-content-safe-left: 0px;
   --kz-content-safe-right: 0px;
+
+  /* Telegram's own authoritative viewport height (Telegram.WebApp.viewportStableHeight), applied
+     by SafeAreaService once available. Outside Telegram, this stays CSS dvh. */
+  --kz-viewport-height: 100dvh;
 }
 
 * {

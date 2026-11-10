@@ -1,8 +1,8 @@
 import { SgfParserService } from '../sgf/sgf-parser.service';
-import { loadExercise } from './exercise-source';
+import { loadExerciseCollection } from './exercise-source';
 import type { GameHistoryDto } from '../data/game-history.model';
 
-describe('loadExercise', () => {
+describe('loadExerciseCollection', () => {
   const sgfParser = new SgfParserService();
   const branchingSgf =
     '(;FF[4]PC[OGS: https://online-go.com/game/1]PB[alice]BR[5k]PW[bob]WR[2k]SZ[9]PL[B]' +
@@ -16,32 +16,39 @@ describe('loadExercise', () => {
       openingAnalysed: null,
       middlegameAnalysed: null,
       endgameAnalysed: null,
+      blackPlayer: null,
+      whitePlayer: null,
+      gameRank: null,
       ...overrides,
     };
   }
 
-  it('prefers the middlegame phase when it has a branch point', () => {
-    const result = loadExercise(dto({ middlegameAnalysed: branchingSgf, openingAnalysed: branchingSgf }), sgfParser);
-    expect(result.phase).toBe('middlegame');
+  it('returns every phase with a branch point, in chronological order, not just the first', () => {
+    const result = loadExerciseCollection(
+      dto({ middlegameAnalysed: branchingSgf, openingAnalysed: branchingSgf, endgameAnalysed: branchingSgf }),
+      sgfParser
+    );
+    expect(result.map((r) => r.phase)).toEqual(['opening', 'middlegame', 'endgame']);
   });
 
-  it('falls back to opening, then endgame, when earlier phases have no branch point', () => {
-    const result = loadExercise(dto({ openingAnalysed: flatSgf, endgameAnalysed: branchingSgf }), sgfParser);
-    expect(result.phase).toBe('endgame');
+  it('skips phases with no branch point, keeping only the ones that build', () => {
+    const result = loadExerciseCollection(dto({ openingAnalysed: flatSgf, endgameAnalysed: branchingSgf }), sgfParser);
+    expect(result.map((r) => r.phase)).toEqual(['endgame']);
   });
 
-  it('reads the opponent (the other colour) and server from the SGF game-info properties', () => {
+  it('reads both players and the server from the SGF game-info properties', () => {
     // branchingSgf has PL[B], so the user is Black (alice) and the opponent is White (bob).
-    const result = loadExercise(dto({ middlegameAnalysed: branchingSgf }), sgfParser);
+    const [result] = loadExerciseCollection(dto({ middlegameAnalysed: branchingSgf }), sgfParser);
+    expect(result.userLabel).toBe('alice 5k');
     expect(result.opponentLabel).toBe('bob 2k');
     expect(result.server).toBe('OGS');
   });
 
   it('throws when no phase SGF has a usable branch point', () => {
-    expect(() => loadExercise(dto({ openingAnalysed: flatSgf }), sgfParser)).toThrow();
+    expect(() => loadExerciseCollection(dto({ openingAnalysed: flatSgf }), sgfParser)).toThrow();
   });
 
   it('throws when every phase is null', () => {
-    expect(() => loadExercise(dto(), sgfParser)).toThrow();
+    expect(() => loadExerciseCollection(dto(), sgfParser)).toThrow();
   });
 });

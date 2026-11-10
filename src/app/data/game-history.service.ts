@@ -9,4 +9,6 @@ import type { GameHistoryDto } from './game-history.model';
  */
 export abstract class GameHistoryService {
   abstract getGameHistory(gameId: string): Observable<GameHistoryDto>;
+  /** GamesPage's list — the real backend only ever exposes "all of the chat's games" (no filtering/single-game lookup server-side; see docs/backend-contract). */
+  abstract listGames(): Observable<GameHistoryDto[]>;
 }

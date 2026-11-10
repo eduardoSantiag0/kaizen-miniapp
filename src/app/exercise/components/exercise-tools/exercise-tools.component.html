@@ -1,7 +1,7 @@
 <div class="kz-tools">
   <button
     type="button"
-    class="kz-tool-btn"
+    class="kz-tool-btn kz-tool-btn--elevated"
     [class.kz-tool-btn--on]="hintOn()"
     [attr.aria-pressed]="hintOn()"
     (click)="hintToggle.emit()"
@@ -9,14 +9,28 @@
     Hint
   </button>
 
-  <button type="button" class="kz-tool-btn" (click)="reset.emit()">Reset</button>
+  <button type="button" class="kz-tool-btn" [disabled]="undoDisabled()" (click)="undo.emit()">Undo</button>
 
+  <!-- Shares Reset's --muted look: Zoom's "utility" tier and Reset's
+       "dangerous-at-rest" tier read as one muted look rather than a third variant. -->
   <button
     type="button"
-    class="kz-tool-btn"
+    class="kz-tool-btn kz-tool-btn--muted"
     [disabled]="zoomDisabled()"
     (click)="zoomToggle.emit()"
   >
     {{ zoomedIn() ? 'Full board' : 'Zoom in' }}
+  </button>
+
+  <!-- Deliberately not adjacent to Undo, and visually muted/armed instead of a
+       disruptive confirm() — see ExerciseToolsComponent.onResetClick. -->
+  <button
+    type="button"
+    class="kz-tool-btn kz-tool-btn--muted"
+    [class.kz-tool-btn--armed]="resetArmed()"
+    [attr.aria-pressed]="resetArmed()"
+    (click)="onResetClick()"
+  >
+    {{ resetArmed() ? 'Confirm?' : 'Reset' }}
   </button>
 </div>

@@ -1,0 +1,119 @@
+:host {
+  display: block;
+  min-height: 100vh; /* fallback for WebViews without dvh support */
+  min-height: 100dvh; /* excludes the mobile browser/WebView chrome that 100vh counts */
+  min-height: var(--kz-viewport-height); /* Telegram's own stable height when running inside Telegram (SafeAreaService) */
+  max-width: 390px;
+  margin: 0 auto;
+  padding: 8px 16px 0;
+  padding-top: calc(8px + var(--kz-content-safe-top, 0px));
+}
+
+.kz-games-banner {
+  width: 358px;
+  height: 104px;
+  max-width: 100%;
+  object-fit: cover;
+  object-position: 50% 45%;
+  border-radius: 3px;
+}
+
+.kz-games-title-block {
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.kz-games-title {
+  margin: 0;
+  font: 600 32px/38px 'IBM Plex Sans', sans-serif;
+  letter-spacing: -0.02em;
+  color: var(--kz-ink);
+}
+
+.kz-games-intro {
+  margin: 0;
+  font: 400 15px/21px 'IBM Plex Sans', sans-serif;
+  color: var(--kz-hint);
+}
+
+.kz-games-filters {
+  margin-top: 18px;
+  display: flex;
+  gap: 22px;
+  border-bottom: 1px solid var(--kz-rule-list);
+}
+
+.kz-games-filter {
+  height: 44px;
+  margin-bottom: -1px; /* the active underline sits flush over the group's own border */
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent; /* reserved even when inactive, so activating a tab doesn't shift layout */
+  padding: 0;
+  font: 600 15px/1 'IBM Plex Sans', sans-serif;
+  color: var(--kz-hint);
+
+  &--active {
+    color: var(--kz-ink);
+    border-bottom-color: var(--kz-vermilion);
+  }
+}
+
+.kz-games-filter-count {
+  font: 500 13px/1 'IBM Plex Mono', monospace;
+  color: var(--kz-hint); /* always hint, even on the active tab */
+}
+
+.kz-games-section {
+  padding: 22px 0 0;
+}
+
+.kz-games-section-title {
+  margin: 0;
+  padding-bottom: 4px;
+  font: 600 15px/19px 'IBM Plex Sans', sans-serif;
+  color: var(--kz-hint);
+}
+
+.kz-games-state {
+  margin-top: 22px;
+}
+
+.kz-games-state-title {
+  margin: 0;
+  font: 600 18px/1.3 'IBM Plex Sans', sans-serif;
+  color: var(--kz-ink);
+
+  &--hint {
+    color: var(--kz-hint);
+  }
+}
+
+.kz-games-state-body {
+  margin: 4px 0 0;
+  font: 400 14px/20px 'IBM Plex Sans', sans-serif;
+  color: var(--kz-hint);
+}
+
+/* Reuses the exercise screen's primary button look (exercise-actions.component.scss's
+   .kz-btn--primary) — duplicated rather than shared across components, since
+   there's no global button-style stylesheet today and this is a single button. */
+.kz-games-retry {
+  margin-top: 16px;
+  width: 100%;
+  height: 52px;
+  border-radius: 3px;
+  border: none;
+  background: var(--kz-primary);
+  color: var(--kz-on-primary);
+  font: 700 17px/1 'IBM Plex Sans', sans-serif;
+}
+
+.kz-games-spacer {
+  height: 36px;
+}

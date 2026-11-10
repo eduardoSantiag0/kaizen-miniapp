@@ -1,5 +1,13 @@
 # GameHistoryDto — backend contract snapshot
 
+> **Out of date as of the `GET /history` prototype round:** the DTO has since
+> moved to the `miniapp` package and gained three fields (`blackPlayer`,
+> `whitePlayer`, `gameRank`) not shown below. See
+> `history-endpoint-contract.md` in this directory for the live shape — this
+> document is kept for its original analysis of where the per-phase SGF
+> fields come from (still accurate) but its field table and file path are
+> stale.
+
 Status: read-only inspection of the backend repo. No backend code was changed to
 produce this document. Verified against backend repo commit:
 

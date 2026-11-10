@@ -41,15 +41,7 @@ export class GobanViewComponent {
   readonly interactive = computed(() => this.state().phase === 'play');
 
   readonly signMap = computed<ShudanMap<0 | 1 | -1>>(() => {
-    const state = this.state();
-    const map = state.board.signMap.map((row) => [...row]) as (0 | 1 | -1)[][];
-
-    if (state.phase === 'play' && state.preview) {
-      const [x, y] = state.preview;
-      map[y][x] = this.line().userSign;
-    }
-
-    return map;
+    return this.state().board.signMap.map((row) => [...row]) as (0 | 1 | -1)[][];
   });
 
   readonly vertexClasses = computed<VertexClass[]>(() => {
@@ -59,9 +51,6 @@ export class GobanViewComponent {
 
     if (state.lastMove) {
       classes.push({ vertex: state.lastMove.vertex, className: 'kz-last-move' });
-    }
-    if (state.phase === 'play' && state.preview) {
-      classes.push({ vertex: state.preview, className: 'kz-preview' });
     }
     if (state.phase === 'wrong' && state.wrongMove) {
       classes.push({ vertex: state.wrongMove.vertex, className: 'kz-wrong' });

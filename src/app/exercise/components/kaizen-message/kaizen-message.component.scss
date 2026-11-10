@@ -1,18 +1,100 @@
 .kz-message {
-  margin: 14px 16px 0;
+  margin: 20px 16px 0;
   display: flex;
-  gap: 10px;
+  flex-direction: column;
+}
+
+/* Avatar centered against the title specifically (not the whole, taller
+   title+body block) — a plain row of the two, so the avatar's circle lands
+   on the title's own line instead of floating high against a 2-line block. */
+.kz-message-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.kz-message-avatar-wrap {
+  position: relative;
+  flex: 0 0 auto;
 }
 
 .kz-message-avatar {
+  position: relative;
+  z-index: 1; /* paints above kz-message-glow, regardless of DOM order */
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  flex: 0 0 auto;
+  display: block;
+}
+
+/* Localized "reward" glow, confined to the avatar's own corner — not a screen-wide
+   effect. Warm gold at its center cooling to the success green, same blend as the
+   app's other celebratory accents (see theme-tokens.ts's glowGold). */
+.kz-message-glow {
+  position: absolute;
+  inset: -12px;
+  z-index: 0;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--kz-glow-gold) 32%, transparent) 0%,
+    color-mix(in srgb, var(--kz-pine) 20%, transparent) 55%,
+    transparent 80%
+  );
+  animation: kz-message-glow-in 500ms ease-out both;
+}
+
+/* Small checkmark badge confirming the correct answer — the one place green is
+   allowed to show for this state, kept to the avatar's own corner. */
+.kz-message-badge {
+  position: absolute;
+  z-index: 2;
+  right: -2px;
+  bottom: -2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--kz-pine);
+  color: var(--kz-base);
+  box-shadow: 0 0 0 2px var(--kz-base);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: kz-message-badge-in 420ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes kz-message-glow-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes kz-message-badge-in {
+  from {
+    opacity: 0;
+    transform: scale(0);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kz-message-glow,
+  .kz-message-badge {
+    animation: none;
+  }
 }
 
 .kz-message-title {
   margin: 0;
+  flex: 1 1 auto;
+  min-width: 0; /* lets long titles wrap within the head row instead of overflowing it */
   font: 600 18px/1.2 'IBM Plex Sans', sans-serif;
   color: var(--kz-ink);
 
@@ -30,7 +112,10 @@
 }
 
 .kz-message-body {
-  margin: 2px 0 0;
+  margin: 4px 0 0;
+  /* Indented to continue under the title (avatar width 36px + the head row's 12px gap),
+     not under the avatar — reads as "the title's own supporting line," not a separate block. */
+  margin-left: 48px;
   font: 400 14px/20px 'IBM Plex Sans', sans-serif;
   color: var(--kz-ink);
 }

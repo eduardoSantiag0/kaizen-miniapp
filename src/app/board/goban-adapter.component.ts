@@ -14,7 +14,7 @@ export interface VertexClass {
  * and explicitly unmounted (`render(null, host)`) on destroy. Nothing else
  * in the app touches Preact directly.
  *
- * Preview/last-move/illegal/wrong/hint looks are applied as plain CSS classes
+ * Last-move/illegal/wrong/hint looks are applied as plain CSS classes
  * on the rendered `.shudan-vertex` elements (see `vertexClasses`) rather than
  * through Shudan's ghostStoneMap/markerMap, so they can match HANDOFF.md's
  * exact visuals through our own stylesheet hooks (goban-theme.scss).
@@ -39,6 +39,18 @@ export class GobanAdapterComponent implements OnDestroy {
   readonly interactive = input(true);
 
   readonly vertexClick = output<Vertex>();
+
+  /**
+   * The vertexClasses this component itself applied on the previous render —
+   * tracked explicitly because Preact only touches a vertex's className when
+   * Shudan's own computed value for it changes (sign, marker, etc.). Whenever
+   * two consecutive renders give Shudan the exact same sign/marker for a
+   * vertex but our own overlay classes changed (e.g. a wrong-move ring that
+   * should clear on the next render), Preact's diff never revisits that
+   * element's class attribute, so a stale class would otherwise survive past
+   * the render where it stopped applying.
+   */
+  private previousClasses: VertexClass[] = [];
 
   constructor() {
     effect(() => {
@@ -94,11 +106,18 @@ export class GobanAdapterComponent implements OnDestroy {
         el.removeAttribute('aria-disabled');
       }
 
+      for (const stale of this.previousClasses) {
+        if (stale.vertex[0] === x && stale.vertex[1] === y) {
+          el.classList.remove(stale.className);
+        }
+      }
       for (const extra of classes) {
         if (extra.vertex[0] === x && extra.vertex[1] === y) {
           el.classList.add(extra.className);
         }
       }
     }
+
+    this.previousClasses = classes;
   }
 }

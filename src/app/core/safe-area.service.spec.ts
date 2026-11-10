@@ -18,12 +18,31 @@ describe('SafeAreaService', () => {
     expect(style.getPropertyValue('--kz-content-safe-right').trim()).toBe('0px');
   });
 
+  it('writes viewportStableHeight as --kz-viewport-height in px', () => {
+    const service = TestBed.inject(SafeAreaService);
+    service.applyViewportHeight(760);
+
+    expect(document.documentElement.style.getPropertyValue('--kz-viewport-height').trim()).toBe('760px');
+  });
+
+  it('leaves --kz-viewport-height at its CSS fallback (100dvh) when null (outside Telegram)', () => {
+    const service = TestBed.inject(SafeAreaService);
+    document.documentElement.style.removeProperty('--kz-viewport-height');
+
+    service.applyViewportHeight(null);
+
+    expect(document.documentElement.style.getPropertyValue('--kz-viewport-height').trim()).toBe('');
+  });
+
   it('reflects a non-zero Telegram contentSafeAreaInset.top reactively', () => {
     window.Telegram = {
       WebApp: {
+        initData: 'query_id=AAH&user=%7B%22id%22%3A1%7D', // non-empty: real Telegram, not the standalone script's stub
         colorScheme: 'dark',
         safeAreaInset: { top: 0, bottom: 0, left: 0, right: 0 },
         contentSafeAreaInset: { top: 56, bottom: 0, left: 0, right: 0 },
+        viewportHeight: 600,
+        viewportStableHeight: 600,
         HapticFeedback: { notificationOccurred: jasmine.createSpy(), impactOccurred: jasmine.createSpy() },
         BackButton: {
           isVisible: false,

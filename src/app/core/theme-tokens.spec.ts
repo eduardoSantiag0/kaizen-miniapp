@@ -12,4 +12,9 @@ describe('theme-tokens', () => {
     expect(vars['--kz-primary']).toBe('#E0B45A');
     expect(vars['--kz-vermilion']).toBe('#D9472B');
   });
+
+  it('exposes the shared glow-gold token the same way across both themes (success vignette)', () => {
+    expect(toCssVariables(YORU_DARK)['--kz-glow-gold']).toBe('#E0B45A');
+    expect(toCssVariables(WASHI_LIGHT)['--kz-glow-gold']).toBe('#E0B45A');
+  });
 });

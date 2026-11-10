@@ -1,16 +1,15 @@
 import { parse } from '@sabaki/sgf';
 import { buildExerciseLine, type ExerciseLine } from './exercise-line';
 import {
-  cancelPreview,
-  confirmMove,
+  canUndo,
   hintVertex,
   initExerciseState,
   playOpponentReply,
+  playVertex,
   resetExercise,
-  tapVertex,
   toggleHint,
   toggleZoom,
-  tryAgain,
+  undo,
   type ExerciseState,
 } from './exercise-state';
 
@@ -36,7 +35,7 @@ describe('exercise state machine', () => {
     expect(state.board.get([2, 2])).toBe(1); // cc setup stone preserved
   });
 
-  it('flags a dashed illegal ring for suicide without creating a preview', () => {
+  it('flags a dashed illegal ring for suicide, without placing anything', () => {
     // Surround [4,4] (ee) on all four sides with white so playing black there is self-capture.
     const sgf =
       '(;FF[4]SZ[9]AB[cc]AW[de][fe][ed][ef]PL[B]' +
@@ -45,25 +44,22 @@ describe('exercise state machine', () => {
     const line = lineFromSgf(sgf);
     const state = initExerciseState(line);
 
-    const tapped = tapVertex(state, line, [4, 4]); // ee: surrounded, suicide
+    const tapped = playVertex(state, line, [4, 4]); // ee: surrounded, suicide
     expect(tapped.illegal?.reason).toBe('suicide');
-    expect(tapped.preview).toBeNull();
+    expect(tapped.board.get([4, 4])).toBe(0);
+    expect(tapped.phase).toBe('play');
   });
 
-  it('previews a legal move, and Cancel clears it without touching the board', () => {
+  it('plays a legal move immediately, with no preview/confirm step', () => {
     let state = initExerciseState(twoStepLine);
-    state = tapVertex(state, twoStepLine, [4, 2]); // ec
-    expect(state.preview).toEqual([4, 2]);
+    state = playVertex(state, twoStepLine, [4, 2]); // ec, correct
 
-    state = cancelPreview(state);
-    expect(state.preview).toBeNull();
-    expect(state.board.get([4, 2])).toBe(0);
+    expect(state.board.get([4, 2])).toBe(1);
   });
 
   it('treats a legal move not at the branch point distinctly from the mistake', () => {
     let state = initExerciseState(twoStepLine);
-    state = tapVertex(state, twoStepLine, [6, 2]); // gc, a plain distractor
-    state = confirmMove(state, twoStepLine);
+    state = playVertex(state, twoStepLine, [6, 2]); // gc, a plain distractor
 
     expect(state.phase).toBe('wrong');
     expect(state.wrongMove?.reason).toBe('otherMove');
@@ -71,19 +67,19 @@ describe('exercise state machine', () => {
 
   it('flags the specific "you played this in the game" wrong move', () => {
     let state = initExerciseState(twoStepLine);
-    state = tapVertex(state, twoStepLine, [5, 2]); // fc, the mistake
-    state = confirmMove(state, twoStepLine);
+    state = playVertex(state, twoStepLine, [5, 2]); // fc, the mistake
 
     expect(state.phase).toBe('wrong');
     expect(state.wrongMove?.reason).toBe('mistakeMove');
     expect(state.board.get([5, 2])).toBe(1); // the stone stays on the board
   });
 
-  it('"Try again" reverts to the position before the wrong move, same step', () => {
+  it('undo from "wrong" reverts to the position before the bad move, same step', () => {
     let state = initExerciseState(twoStepLine);
-    state = tapVertex(state, twoStepLine, [5, 2]);
-    state = confirmMove(state, twoStepLine);
-    state = tryAgain(state, twoStepLine);
+    state = playVertex(state, twoStepLine, [5, 2]); // fc, wrong
+    expect(canUndo(state)).toBe(true);
+
+    state = undo(state, twoStepLine);
 
     expect(state.phase).toBe('play');
     expect(state.step).toBe(1);
@@ -92,8 +88,7 @@ describe('exercise state machine', () => {
 
   it('plays the correct move, enters reply phase, then auto-plays the opponent and advances the step', () => {
     let state = initExerciseState(twoStepLine);
-    state = tapVertex(state, twoStepLine, [4, 2]); // ec, correct
-    state = confirmMove(state, twoStepLine);
+    state = playVertex(state, twoStepLine, [4, 2]); // ec, correct
 
     expect(state.phase).toBe('reply');
     expect(state.board.get([4, 2])).toBe(1);
@@ -108,14 +103,49 @@ describe('exercise state machine', () => {
 
   it('reaches done after the final correct move of the line', () => {
     let state = initExerciseState(twoStepLine);
-    state = tapVertex(state, twoStepLine, [4, 2]);
-    state = confirmMove(state, twoStepLine);
+    state = playVertex(state, twoStepLine, [4, 2]);
     state = playOpponentReply(state, twoStepLine);
-
-    state = tapVertex(state, twoStepLine, [4, 3]); // ed, final correct move
-    state = confirmMove(state, twoStepLine);
+    state = playVertex(state, twoStepLine, [4, 3]); // ed, final correct move
 
     expect(state.phase).toBe('done');
+  });
+
+  it('cannot undo once the line is "done" (Tools is unmounted by then)', () => {
+    let state = initExerciseState(twoStepLine);
+    state = playVertex(state, twoStepLine, [4, 2]);
+    state = playOpponentReply(state, twoStepLine);
+    state = playVertex(state, twoStepLine, [4, 3]); // ed, final correct move
+    expect(state.phase).toBe('done');
+
+    expect(canUndo(state)).toBe(false);
+    expect(undo(state, twoStepLine)).toBe(state); // no-op, same reference
+  });
+
+  it('undo from "play" (after a reply) removes the previous correct move and the opponent reply, back one step', () => {
+    let state = initExerciseState(twoStepLine);
+    state = playVertex(state, twoStepLine, [4, 2]); // ec, correct
+    state = playOpponentReply(state, twoStepLine); // fc, step becomes 2
+    expect(state.step).toBe(2);
+
+    state = undo(state, twoStepLine);
+
+    expect(state.phase).toBe('play');
+    expect(state.step).toBe(1);
+    expect(state.board.get([4, 2])).toBe(0); // ec removed
+    expect(state.board.get([5, 2])).toBe(0); // fc (the reply) removed too
+  });
+
+  it('cannot undo a fresh exercise (nothing played yet)', () => {
+    const state = initExerciseState(twoStepLine);
+    expect(canUndo(state)).toBe(false);
+    expect(undo(state, twoStepLine)).toBe(state); // no-op, same reference
+  });
+
+  it('cannot undo mid opponent-reply (board is locked)', () => {
+    let state = initExerciseState(twoStepLine);
+    state = playVertex(state, twoStepLine, [4, 2]);
+    expect(state.phase).toBe('reply');
+    expect(canUndo(state)).toBe(false);
   });
 
   it('resolves captures through GoBoard.makeMove when a correct move captures a stone', () => {
@@ -125,8 +155,7 @@ describe('exercise state machine', () => {
     const line = lineFromSgf(captureSgf);
 
     let state = initExerciseState(line);
-    state = tapVertex(state, line, [4, 5]); // ef
-    state = confirmMove(state, line);
+    state = playVertex(state, line, [4, 5]); // ef
 
     expect(state.board.get([4, 4])).toBe(0); // white stone captured, point now empty
     expect(state.board.get([4, 5])).toBe(1); // black's capturing stone
@@ -134,8 +163,7 @@ describe('exercise state machine', () => {
 
   it('resets to the initial state', () => {
     let state = initExerciseState(twoStepLine);
-    state = tapVertex(state, twoStepLine, [4, 2]);
-    state = confirmMove(state, twoStepLine);
+    state = playVertex(state, twoStepLine, [4, 2]);
 
     const reset = resetExercise(twoStepLine);
     expect(reset.phase).toBe('play');
@@ -152,21 +180,19 @@ describe('exercise state machine', () => {
     expect(hintVertex(state, twoStepLine)).toEqual([4, 2]); // ec
   });
 
-  it('toggles the zoom window flag', () => {
+  it('toggles the zoom window flag, defaulting to the full board', () => {
     let state = initExerciseState(twoStepLine);
-    expect(state.zoomedIn).toBe(true);
-    state = toggleZoom(state);
     expect(state.zoomedIn).toBe(false);
+    state = toggleZoom(state);
+    expect(state.zoomedIn).toBe(true);
   });
 
   it('turns hint off once the line completes', () => {
     let state = initExerciseState(twoStepLine);
     state = toggleHint(state);
-    state = tapVertex(state, twoStepLine, [4, 2]);
-    state = confirmMove(state, twoStepLine);
+    state = playVertex(state, twoStepLine, [4, 2]);
     state = playOpponentReply(state, twoStepLine);
-    state = tapVertex(state, twoStepLine, [4, 3]);
-    state = confirmMove(state, twoStepLine);
+    state = playVertex(state, twoStepLine, [4, 3]);
 
     expect(state.phase).toBe('done');
     expect(state.hintOn).toBe(false);

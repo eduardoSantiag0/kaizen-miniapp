@@ -14,29 +14,41 @@
   @if (exerciseLine && state().screen === 'ready') {
     <kz-goban-view [state]="state()" [line]="exerciseLine" (vertexTap)="onVertexTap($event)" />
 
+    <kz-kaizen-message
+      [title]="message().title"
+      [body]="message().body"
+      [tone]="message().tone"
+      [emphasized]="message().emphasized"
+      [celebrate]="celebrate()"
+    />
+
+    <!-- Kept mounted (not @if'd away) so hiding it on 'done' can fade/collapse
+         smoothly instead of cutting instantly — see kz-tools--hidden. -->
     <kz-exercise-tools
+      [class.kz-tools--hidden]="!showTools()"
+      [attr.aria-hidden]="!showTools()"
       [hintOn]="state().hintOn"
       [zoomedIn]="state().zoomedIn"
       [zoomDisabled]="zoomDisabled()"
+      [undoDisabled]="!canUndoState()"
       (hintToggle)="onHintToggle()"
       (reset)="onReset()"
       (zoomToggle)="onZoomToggle()"
+      (undo)="onUndo()"
+    />
+  } @else {
+    <kz-kaizen-message
+      [title]="message().title"
+      [body]="message().body"
+      [tone]="message().tone"
+      [emphasized]="message().emphasized"
     />
   }
-
-  <kz-kaizen-message
-    [title]="message().title"
-    [body]="message().body"
-    [tone]="message().tone"
-    [emphasized]="message().emphasized"
-  />
 
   <kz-exercise-actions
     [actions]="actions()"
     [correctSecondaryLabel]="correctSecondaryLabel()"
-    (play)="play()"
-    (cancel)="cancel()"
-    (tryAgain)="onTryAgain()"
+    (tryAgain)="onUndo()"
     (playAgain)="onReset()"
     (backToGames)="backToGames()"
     (doneSecondary)="onDoneSecondary()"

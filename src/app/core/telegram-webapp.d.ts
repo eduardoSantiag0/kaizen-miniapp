@@ -21,9 +21,20 @@ export interface TelegramBackButton {
 }
 
 export interface TelegramWebApp {
+  /**
+   * Telegram's official script always creates window.Telegram.WebApp, even
+   * outside real Telegram (standalone/browser load) — this is empty in that
+   * case and only ever populated when actually launched from within Telegram,
+   * making it the real "are we inside Telegram" signal (see TelegramService).
+   */
+  initData: string;
   colorScheme: 'light' | 'dark';
   safeAreaInset: TelegramSafeAreaInset;
   contentSafeAreaInset: TelegramSafeAreaInset;
+  /** Updates continuously (e.g. during keyboard/drag transitions) — prefer viewportStableHeight for layout sizing. */
+  viewportHeight: number;
+  /** Ignores transitional states, so layout sized from this doesn't jump mid-gesture. */
+  viewportStableHeight: number;
   HapticFeedback: TelegramHapticFeedback;
   BackButton: TelegramBackButton;
   onEvent(eventType: string, callback: () => void): void;

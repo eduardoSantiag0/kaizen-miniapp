@@ -1,6 +1,18 @@
 <div class="kz-message">
-  <img class="kz-message-avatar" src="/assets/kaizen-avatar@2x.png" alt="" width="36" height="36" />
-  <div class="kz-message-text">
+  <div class="kz-message-head">
+    <div class="kz-message-avatar-wrap">
+      @if (celebrate()) {
+        <span class="kz-message-glow" aria-hidden="true"></span>
+      }
+      <img class="kz-message-avatar" src="/assets/kaizen-avatar@2x.png" alt="" width="36" height="36" />
+      @if (celebrate()) {
+        <span class="kz-message-badge" aria-hidden="true">
+          <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+            <path d="M1 4L3.5 6.5L9 1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </span>
+      }
+    </div>
     <p
       class="kz-message-title"
       role="status"
@@ -9,6 +21,6 @@
     >
       {{ title() }}
     </p>
-    <p class="kz-message-body">{{ body() }}</p>
   </div>
+  <p class="kz-message-body">{{ body() }}</p>
 </div>

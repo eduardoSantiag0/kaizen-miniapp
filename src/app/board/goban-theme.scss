@@ -106,18 +106,36 @@ kz-goban-adapter.kz-goban-adapter--locked {
   border-radius: 50%;
 }
 
+/* Drawn as two crossed bars rather than the '\2715' text glyph: a font glyph's
+   ink isn't optically centred in its own em-box (ascent/descent + side
+   bearings vary by font/platform), so no amount of line-height/transform
+   tweaking on a text node ever lands it dead-center. A gradient-drawn cross
+   has no such metrics to fight — `inset` alone centers it exactly.
+   The wrong move is also always the last move, so this element also carries
+   .kz-last-move — explicitly reset width/height/transform here, or that
+   rule's dot-centering values (width/height:34%, translate(-50%,-50%), meant
+   for a differently-sized box) leak through and drag this one off-center. */
 .kz-board .shudan-vertex.kz-wrong .shudan-stone::after {
-  content: '\2715';
+  content: '';
   position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  color: var(--kz-vermilion, #d9472b);
-  font-size: 60%;
+  inset: 32%;
+  width: auto;
+  height: auto;
+  transform: none;
+  background:
+    linear-gradient(
+      45deg,
+      transparent calc(50% - 1px),
+      var(--kz-vermilion, #d9472b) calc(50% - 1px),
+      var(--kz-vermilion, #d9472b) calc(50% + 1px),
+      transparent calc(50% + 1px)
+    ),
+    linear-gradient(
+      -45deg,
+      transparent calc(50% - 1px),
+      var(--kz-vermilion, #d9472b) calc(50% - 1px),
+      var(--kz-vermilion, #d9472b) calc(50% + 1px),
+      transparent calc(50% + 1px)
+    );
   z-index: 4;
-}
-
-/* Preview stone: 55% opacity. */
-.kz-board .shudan-vertex.kz-preview .shudan-stone {
-  opacity: 0.55;
 }

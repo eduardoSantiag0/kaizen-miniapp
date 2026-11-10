@@ -9,6 +9,17 @@ export interface GameHistoryDto {
   openingAnalysed: string | null;
   middlegameAnalysed: string | null;
   endgameAnalysed: string | null;
+  /** From the original game's SGF PB[] tag. */
+  blackPlayer: string | null;
+  /** From the original game's SGF PW[] tag. */
+  whitePlayer: string | null;
+  /**
+   * NOT always "{blackRank}/{whiteRank}" — that form only when both BR[] and
+   * WR[] are present on the source SGF. A bare single rank (no slash) is a
+   * valid value when only one side has a rank tag, and null when neither does.
+   * See docs/backend-contract/history-endpoint-contract.md section 3.
+   */
+  gameRank: string | null;
 }
 
 export type GamePhase = 'opening' | 'middlegame' | 'endgame';

@@ -14,7 +14,6 @@ export interface ExerciseState {
   /** 1-based index of the user move currently expected. */
   step: number;
   totalSteps: number;
-  preview: Vertex | null;
   illegal: { vertex: Vertex; reason: IllegalReason } | null;
   lastMove: { vertex: Vertex; sign: 1 | -1 } | null;
   wrongMove: { vertex: Vertex; reason: WrongReason } | null;
@@ -34,12 +33,11 @@ export function initExerciseState(line: ExerciseLine): ExerciseState {
     board: line.setupBoard.clone(),
     step: 1,
     totalSteps: line.totalSteps,
-    preview: null,
     illegal: null,
     lastMove: null,
     wrongMove: null,
     hintOn: false,
-    zoomedIn: true,
+    zoomedIn: false,
     turnSign: line.userSign,
   };
 }
@@ -48,8 +46,12 @@ export function loadingState(): Pick<ExerciseState, 'screen'> {
   return { screen: 'loading' };
 }
 
-/** Tapping an empty point: illegal -> show the ring and reason; legal and new -> preview; legal and same as current preview -> caller should confirm instead. */
-export function tapVertex(state: ExerciseState, line: ExerciseLine, vertex: Vertex): ExerciseState {
+/**
+ * Tapping an empty point plays it immediately — no preview/confirm step.
+ * Illegal (suicide/ko): shows the ring and reason, no move. Legal: plays it
+ * right away and resolves correct ('reply'/'done') or incorrect ('wrong').
+ */
+export function playVertex(state: ExerciseState, line: ExerciseLine, vertex: Vertex): ExerciseState {
   if (state.phase !== 'play') return state;
   if (state.board.get(vertex)) return state;
 
@@ -59,23 +61,10 @@ export function tapVertex(state: ExerciseState, line: ExerciseLine, vertex: Vert
   if (analysis.suicide || analysis.ko) {
     return {
       ...state,
-      preview: null,
       illegal: { vertex, reason: analysis.suicide ? 'suicide' : 'ko' },
     };
   }
 
-  return { ...state, preview: vertex, illegal: null };
-}
-
-export function cancelPreview(state: ExerciseState): ExerciseState {
-  return { ...state, preview: null };
-}
-
-/** Confirms the previewed move: plays it, and branches into 'wrong' or the next reply/done phase. */
-export function confirmMove(state: ExerciseState, line: ExerciseLine): ExerciseState {
-  if (state.phase !== 'play' || !state.preview) return state;
-
-  const vertex = state.preview;
   const expected = line.kataGoLine[(state.step - 1) * 2];
   const isCorrect = !!expected && vertexEquals(expected.vertex, vertex);
 
@@ -91,7 +80,6 @@ export function confirmMove(state: ExerciseState, line: ExerciseLine): ExerciseS
     return {
       ...state,
       board,
-      preview: null,
       illegal: null,
       phase: 'wrong',
       lastMove: { vertex, sign: line.userSign },
@@ -105,7 +93,6 @@ export function confirmMove(state: ExerciseState, line: ExerciseLine): ExerciseS
   return {
     ...state,
     board,
-    preview: null,
     illegal: null,
     wrongMove: null,
     lastMove: { vertex, sign: line.userSign },
@@ -137,20 +124,55 @@ export function playOpponentReply(state: ExerciseState, line: ExerciseLine): Exe
   };
 }
 
-/** "Try again": returns to the position before the wrong move, same step. */
-export function tryAgain(state: ExerciseState, line: ExerciseLine): ExerciseState {
-  if (state.phase !== 'wrong') return state;
+/**
+ * Undo: from 'wrong', removes just the bad move, same step. From 'play'
+ * (after at least one correct move), removes the last correct move — and,
+ * if that move already got an opponent reply, the reply too — landing back
+ * on 'play' at the previous step. There's no instant-tap confirm step to
+ * "Cancel" any more, so this is the general recovery action for a misclick.
+ * No-op if there's nothing to undo yet (fresh exercise, or mid opponent-reply).
+ * Tools never mounts once the line is 'done', so undo() is never reached then.
+ */
+export function undo(state: ExerciseState, line: ExerciseLine): ExerciseState {
+  if (state.phase === 'wrong') {
+    return {
+      ...state,
+      phase: 'play',
+      board: boardAtStepStart(line, state.step),
+      illegal: null,
+      wrongMove: null,
+      lastMove: lastMoveBeforeStep(line, state.step),
+      turnSign: line.userSign,
+    };
+  }
+
+  if (!canUndo(state)) return state;
+
+  const targetStep = state.step - 1;
 
   return {
     ...state,
     phase: 'play',
-    board: boardAtStepStart(line, state.step),
-    preview: null,
+    step: targetStep,
+    board: boardAtStepStart(line, targetStep),
     illegal: null,
     wrongMove: null,
-    lastMove: lastMoveBeforeStep(line, state.step),
+    lastMove: lastMoveBeforeStep(line, targetStep),
     turnSign: line.userSign,
   };
+}
+
+/** Whether undo() would do anything right now — drives the Undo tool button's disabled state. */
+export function canUndo(state: ExerciseState): boolean {
+  switch (state.phase) {
+    case 'wrong':
+      return true;
+    case 'play':
+      return state.step > 1;
+    case 'reply':
+    case 'done':
+      return false; // 'reply': board is locked mid opponent-reply. 'done': Tools isn't mounted.
+  }
 }
 
 export function resetExercise(line: ExerciseLine): ExerciseState {

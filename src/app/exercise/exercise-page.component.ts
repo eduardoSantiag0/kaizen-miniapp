@@ -1,4 +1,5 @@
 import { Component, DestroyRef, computed, effect, inject, input, output, signal } from '@angular/core';
+import { Router } from '@angular/router';
 import type { Vertex } from '@sabaki/shudan';
 import GoBoard from '@sabaki/go-board';
 import { GameHistoryService } from '../data/game-history.service';
@@ -13,18 +14,16 @@ import { SeigaihaFillComponent } from '../shared/seigaiha-fill/seigaiha-fill.com
 import { PaperBackgroundComponent } from '../shared/paper-background/paper-background.component';
 import { actionsFor, actionsForScreen, messageFor, messageForScreen, turnLineText } from './exercise-copy';
 import { UnreadableExerciseError, type ExerciseLine } from './exercise-line';
-import { loadExercise, type LoadedExercise } from './exercise-source';
+import { loadExerciseCollection, type LoadedExercise } from './exercise-source';
 import {
-  cancelPreview,
-  confirmMove,
+  canUndo,
   initExerciseState,
   playOpponentReply,
+  playVertex,
   resetExercise,
-  tapVertex,
   toggleHint,
   toggleZoom,
-  tryAgain,
-  vertexEquals,
+  undo,
   type ExerciseState,
 } from './exercise-state';
 import { UnreadableSgfError } from '../sgf/sgf-parser.service';
@@ -50,6 +49,7 @@ export class ExercisePageComponent {
   private readonly sgfParser = inject(SgfParserService);
   private readonly telegram = inject(TelegramService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly router = inject(Router);
 
   /**
    * Which game to load. A future /practice session wrapper drives several
@@ -67,32 +67,42 @@ export class ExercisePageComponent {
    */
   readonly menuMode = input(true);
 
-  /** Label for the 'done' phase's secondary action — "Back to games" from the menu, something else in a session. */
-  readonly correctSecondaryLabel = input('Back to games');
-
-  /** Fires when the 'done' phase's secondary action is clicked. A menu-mode caller can ignore it (default behaviour is a no-op, matching today's single-exercise flow); a session wrapper can listen for "next exercise" later. */
+  /** Fires whenever the 'done' phase's primary action is clicked, whether it advanced to the next exercise or went back to games — a future session wrapper can observe this without owning the behavior itself. */
   readonly doneSecondaryAction = output<void>();
 
-  private readonly exercise = signal<LoadedExercise | null>(null);
+  /**
+   * Every phase of this game that produced a usable exercise (chronological:
+   * opening, middlegame, endgame — see loadExerciseCollection), and which one
+   * is currently showing. "Next exercise" steps forward through this; there's
+   * no backend field saying which phases exist, so this is derived per game,
+   * not driven by an external input.
+   */
+  private readonly collection = signal<LoadedExercise[]>([]);
+  private readonly collectionIndex = signal(0);
+  private readonly exercise = computed<LoadedExercise | null>(() => this.collection()[this.collectionIndex()] ?? null);
+  readonly hasNext = computed(() => this.collectionIndex() < this.collection().length - 1);
+  /** Label for the 'done' phase's primary action — swaps automatically, no external override needed. */
+  readonly correctSecondaryLabel = computed(() => (this.hasNext() ? 'Next exercise' : 'Back to games'));
   readonly state = signal<ExerciseState>({
     screen: 'loading',
     phase: 'play',
     board: GoBoard.fromDimensions(19),
     step: 1,
     totalSteps: 0,
-    preview: null,
     illegal: null,
     lastMove: null,
     wrongMove: null,
     hintOn: false,
-    zoomedIn: true,
+    zoomedIn: false,
     turnSign: 1,
   });
 
   readonly line = computed(() => this.exercise()?.line ?? null);
   readonly metaText = computed(() => {
     const exercise = this.exercise();
-    return exercise ? `vs ${exercise.opponentLabel} · ${exercise.server}` : '';
+    if (!exercise) return '';
+    const players = exercise.userLabel ? `${exercise.userLabel} vs ${exercise.opponentLabel}` : `vs ${exercise.opponentLabel}`;
+    return exercise.server ? `${players} · ${exercise.server}` : players;
   });
 
   readonly message = computed(() => {
@@ -104,8 +114,23 @@ export class ExercisePageComponent {
 
   readonly actions = computed(() => {
     const line = this.line();
-    return line ? actionsFor(this.state(), line) : actionsForScreen(this.state().screen)!;
+    return line ? actionsFor(this.state()) : actionsForScreen(this.state().screen)!;
   });
+
+  readonly canUndoState = computed(() => this.line() !== null && canUndo(this.state()));
+
+  /** Progressive disclosure: once the line is done, the Tools row hands off entirely to ExerciseActions — kept visible for 'wrong' (Undo/Reset/Hint/Zoom still matter there). */
+  readonly showTools = computed(() => this.state().screen === 'ready' && this.state().phase !== 'done');
+
+  /**
+   * Drives KaizenMessage's localized "Correct!" badge/glow (replacing the old
+   * screen-wide SuccessVignette). A plain boolean is enough: it's only ever
+   * true while phase === 'done', and every path back into 'done' passes
+   * through 'play' first (Reset or Undo), so the badge's @if in the template
+   * naturally remounts — and replays its entrance animation — on every fresh
+   * completion without needing a bump-counter.
+   */
+  readonly celebrate = computed(() => this.state().phase === 'done');
 
   readonly turnText = computed(() => {
     const line = this.line();
@@ -164,32 +189,18 @@ export class ExercisePageComponent {
     });
   }
 
+  /** Tapping a point plays it immediately — no preview/confirm step. */
   onVertexTap(vertex: Vertex): void {
     const line = this.line();
     const current = this.state();
     if (!line || current.screen !== 'ready') return;
 
-    if (current.phase === 'play' && current.preview && vertexEquals(current.preview, vertex)) {
-      this.play();
-      return;
-    }
-
-    const next = tapVertex(current, line, vertex);
+    const next = playVertex(current, line, vertex);
     this.state.set(next);
 
     if (next.illegal) {
       this.telegram.notificationHaptic('warning');
-    }
-  }
-
-  play(): void {
-    const line = this.line();
-    if (!line) return;
-
-    const next = confirmMove(this.state(), line);
-    this.state.set(next);
-
-    if (next.phase === 'wrong') {
+    } else if (next.phase === 'wrong') {
       this.telegram.notificationHaptic('error');
     } else if (next.phase === 'reply') {
       this.scheduleOpponentReply(line);
@@ -198,13 +209,10 @@ export class ExercisePageComponent {
     }
   }
 
-  cancel(): void {
-    this.state.update((s) => cancelPreview(s));
-  }
-
-  onTryAgain(): void {
+  /** General "undo my last move" recovery — replaces the old preview/Cancel step now that taps play instantly. Also what the 'wrong' phase's "Try again" action calls. */
+  onUndo(): void {
     const line = this.line();
-    if (line) this.state.update((s) => tryAgain(s, line));
+    if (line) this.state.update((s) => undo(s, line));
   }
 
   onReset(): void {
@@ -221,7 +229,7 @@ export class ExercisePageComponent {
   }
 
   readonly backToGames = (): void => {
-    // GamesPage doesn't exist yet (out of scope for this build); this is its wiring target.
+    this.router.navigate(['/']);
   };
 
   /** The 'done' phase's secondary action (menu mode: "Back to games"; a future session wrapper can listen to doneSecondaryAction instead to do something else, e.g. "Next exercise"). */

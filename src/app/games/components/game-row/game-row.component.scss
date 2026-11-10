@@ -1,0 +1,150 @@
+:host {
+  display: block;
+}
+
+.kz-game-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 78px;
+  padding: 12px 0;
+  text-decoration: none;
+  color: inherit;
+  border-top: 1px solid var(--kz-rule-list);
+
+  /* The first row of each section (Today/Earlier) has no divider above it — the
+     section itself supplies that boundary. Driven by an explicit input (the
+     parent's @for `$first`), not a :first-child CSS selector — this class's
+     actual DOM parent is just this row's own host, so :first-child would
+     always match trivially and never reflect the row's position in the list. */
+  &--no-divider {
+    border-top: none;
+  }
+}
+
+.kz-game-row-thumb {
+  flex: 0 0 auto;
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border-radius: 3px;
+  background-color: #dcae5e; /* Kaya gold — hardcoded, never theme-flipped, matches goban-theme.scss's board colour */
+  background-image:
+    repeating-linear-gradient(to right, rgba(28, 22, 12, 0.55) 0 1px, transparent 1px 100%),
+    repeating-linear-gradient(to bottom, rgba(28, 22, 12, 0.55) 0 1px, transparent 1px 100%);
+  background-size: calc(44px / var(--kz-thumb-board-size)) calc(44px / var(--kz-thumb-board-size));
+  background-position: calc(22px / var(--kz-thumb-board-size)) calc(22px / var(--kz-thumb-board-size));
+}
+
+/* Same stone rendering as the exercise board (goban-theme.scss's .shudan-stone-image rules) — duplicated rather than shared, since the two live in unrelated visual contexts (a board vertex vs. a list thumbnail badge). */
+.kz-game-row-stone {
+  position: absolute;
+  right: -5px;
+  bottom: -5px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 32% 28%, #4a4a4e 0%, #1e1d1f 32%, #121113 100%);
+  box-shadow:
+    0 0 0 2px var(--kz-base),
+    0 1.5px 0 rgba(0, 0, 0, 0.35);
+
+  &--white {
+    background: radial-gradient(circle at 32% 28%, #ffffff 0%, #f4ecda 45%, #e0d3b8 100%);
+    box-shadow:
+      0 0 0 2px var(--kz-base),
+      inset 0 0 0 1.2px rgba(30, 26, 20, 0.85),
+      0 1.5px 0 rgba(0, 0, 0, 0.25);
+  }
+}
+
+.kz-game-row-text {
+  flex: 1 1 auto;
+  min-width: 0; /* lets the ellipsis rules below actually take effect in a flex child */
+}
+
+.kz-game-row-name-line {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.kz-game-row-name {
+  font: 700 17px/22px 'IBM Plex Sans', sans-serif;
+  color: var(--kz-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kz-game-row-rank {
+  flex-shrink: 0;
+  font: 400 13px/18px 'IBM Plex Sans', sans-serif;
+  color: var(--kz-hint);
+}
+
+.kz-game-row-meta,
+.kz-game-row-status {
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kz-game-row-meta {
+  font: 400 13px/18px 'IBM Plex Sans', sans-serif;
+  color: var(--kz-hint);
+}
+
+.kz-game-row-status {
+  font: 500 13px/18px 'IBM Plex Sans', sans-serif;
+
+  &--done {
+    color: var(--kz-pine);
+  }
+
+  &--running,
+  &--waiting {
+    color: var(--kz-hint);
+  }
+}
+
+.kz-game-row-right {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  /* 18px chevron + 6px gap - 4px chevron margin ≈ 20px — a non-tappable row's
+     trailing edge lands in the same spot without actually drawing one. */
+  &--no-chevron {
+    padding-right: 20px;
+  }
+}
+
+.kz-game-row-outcome {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.kz-game-row-outcome-label {
+  font: 600 15px/1.2 'IBM Plex Sans', sans-serif;
+  color: var(--kz-hint);
+
+  &--won {
+    color: var(--kz-shu);
+  }
+}
+
+.kz-game-row-outcome-result {
+  font: 400 12px/1.2 'IBM Plex Sans', sans-serif;
+  color: var(--kz-hint);
+}
+
+.kz-game-row-chevron {
+  flex: 0 0 auto;
+  margin-right: -4px;
+  color: var(--kz-hint);
+}

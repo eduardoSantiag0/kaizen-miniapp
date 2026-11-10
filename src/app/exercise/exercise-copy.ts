@@ -13,7 +13,6 @@ export interface KaizenMessageCopy {
 
 export type ActionsCopy =
   | { kind: 'none' }
-  | { kind: 'preview'; coord: string }
   | { kind: 'tryAgain' }
   | { kind: 'correct' }
   | { kind: 'loading' }
@@ -71,7 +70,6 @@ export function messageFor(state: ExerciseState, line: ExerciseLine): KaizenMess
 
   switch (state.phase) {
     case 'play':
-      // Preview leaves the message unchanged (section 5's state table) — only the actions row changes.
       if (state.step === 1) {
         return {
           title: `Your biggest mistake: ${mistakeCoord(line)}`,
@@ -128,16 +126,13 @@ export function actionsForScreen(screen: ExerciseState['screen']): ActionsCopy |
   }
 }
 
-export function actionsFor(state: ExerciseState, line: ExerciseLine): ActionsCopy {
+export function actionsFor(state: ExerciseState): ActionsCopy {
   const screenActions = actionsForScreen(state.screen);
   if (screenActions) return screenActions;
   if (state.illegal) return { kind: 'none' };
 
   switch (state.phase) {
     case 'play':
-      return state.preview
-        ? { kind: 'preview', coord: line.setupBoard.stringifyVertex(state.preview) }
-        : { kind: 'none' };
     case 'reply':
       return { kind: 'none' };
     case 'wrong':

@@ -1,17 +1,43 @@
 .kz-actions {
-  /* Sticky so the primary action stays within thumb reach regardless of scroll
-     position (Mobile-UX call: keep the ~470px zoomed board's touch-target size
-     from HANDOFF.md as-is, fix reachability here instead). */
-  position: sticky;
-  bottom: 0;
-  z-index: 2; /* above kz-seigaiha-fill, which paints after it in DOM order */
-  background: var(--kz-base);
-  margin: 12px 16px 0;
+  /* Deliberately plain, normal-flow positioning — not position: sticky. An
+     earlier sticky treatment (for thumb reach) coexisted with real bugs:
+     the primary action covering the completion message, and the button
+     being partially hidden by the mobile WebView's own chrome. Root cause
+     was the layout not correctly sizing against the dynamic viewport/safe
+     areas (see exercise-page.component.scss's --kz-viewport-height and the
+     --kz-content-safe-bottom addition just below) combined with sticky's
+     well-documented flakiness under mobile WebView viewport-resize/scroll
+     interactions. Fix: size the page correctly and let it scroll normally —
+     per the user's own direction, buttons should be "accessible by
+     scrolling," not pinned.
+     Belt-and-suspenders bottom padding: the device-level safe area AND
+     Telegram's own chrome overlapping the WebView (contentSafeAreaInset,
+     exposed as --kz-content-safe-bottom) — not just one of the two. */
+  margin: 16px 16px 0;
   display: flex;
   gap: 8px;
-  /* Belt-and-suspenders: the bottom safe area shouldn't depend on the decorative
-     seigaiha illustration staying exactly as-is underneath these buttons. */
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--kz-content-safe-bottom, 0px));
+
+  /* Deliberate change, confirmed by the user, overriding HANDOFF's side-by-side
+     Correct row on purpose: the two completion actions stack full-width instead. */
+  &--stacked {
+    flex-direction: column;
+    /* More breathing room than the usual 16px here specifically: this gap follows
+       the celebration badge/glow on KaizenMessage, not a plain mid-exercise message,
+       so it gets a step above the other gaps on this screen rather than matching them. */
+    margin-top: 24px;
+
+    /* Two FULL 52px buttons stacked (104px+gap) read as oversized/dominant in a way
+       a single 52px button or a side-by-side pair never did. Scoped to this stacked
+       case only — floors at 44px, this system's own minimum touch target, rather than
+       an arbitrary smaller number, and restores HANDOFF's original 16px (not 17px)
+       intent for the two-button Correct row, which got lost when it moved from
+       side-by-side to stacked. */
+    .kz-btn {
+      height: 44px;
+      font-size: 16px;
+    }
+  }
 }
 
 .kz-btn {
@@ -34,14 +60,36 @@
     flex: 0 0 auto;
   }
 
-  &--half {
-    flex: 1 1 50%;
-    font-size: 16px;
+  &--full {
+    flex: 1 1 auto;
+    width: 100%;
   }
 
   &--disabled {
     flex: 1 1 auto;
     background: var(--kz-disabled-bg);
     color: var(--kz-hint);
+  }
+
+  /* Discreet fade/rise-in as the completion actions take over from Tools. */
+  &--enter {
+    animation: kz-btn-enter 200ms ease both;
+  }
+}
+
+@keyframes kz-btn-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kz-btn--enter {
+    animation: none;
   }
 }

@@ -1,19 +1,20 @@
-<div class="kz-actions">
-  @let current = actions();
-  @switch (current.kind) {
-    @case ('preview') {
-      <button type="button" class="kz-btn kz-btn--outline" (click)="cancel.emit()" aria-label="Cancel">✕</button>
-      <button type="button" class="kz-btn kz-btn--primary" (click)="play.emit()">
-        Play {{ current.coord }}
-      </button>
-    }
+<div class="kz-actions" [class.kz-actions--stacked]="actions().kind === 'correct'">
+  @switch (actions().kind) {
     @case ('tryAgain') {
       <button type="button" class="kz-btn kz-btn--primary" (click)="tryAgain.emit()">Try again</button>
     }
     @case ('correct') {
-      <button type="button" class="kz-btn kz-btn--outline kz-btn--half" (click)="playAgain.emit()">Play again</button>
-      <button type="button" class="kz-btn kz-btn--primary kz-btn--half" (click)="doneSecondary.emit()">
+      <!-- Primary action first, secondary second — matches the stated hierarchy
+           (1. visual confirmation, 2. message, 3. primary action, 4. secondary). -->
+      <button
+        type="button"
+        class="kz-btn kz-btn--primary kz-btn--full kz-btn--enter"
+        (click)="doneSecondary.emit()"
+      >
         {{ correctSecondaryLabel() }}
+      </button>
+      <button type="button" class="kz-btn kz-btn--outline kz-btn--full kz-btn--enter" (click)="playAgain.emit()">
+        Play again
       </button>
     }
     @case ('loading') {

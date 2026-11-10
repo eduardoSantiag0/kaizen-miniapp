@@ -1,7 +1,31 @@
+:host {
+  display: block;
+  overflow: hidden;
+  max-height: 64px; /* enough for the 44px buttons + their 16px top margin, plus a little slack */
+  opacity: 1;
+  transition:
+    opacity 200ms ease,
+    max-height 200ms ease,
+    margin-top 200ms ease;
+}
+
+:host(.kz-tools--hidden) {
+  opacity: 0;
+  max-height: 0;
+  margin-top: -16px; /* collapses the gap the row's own 16px top margin would otherwise leave */
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :host {
+    transition: none;
+  }
+}
+
 .kz-tools {
   display: flex;
   gap: 8px;
-  margin: 12px 8px 0;
+  margin: 16px 8px 0;
 }
 
 .kz-tool-btn {
@@ -13,10 +37,38 @@
   background: transparent;
   color: var(--kz-ink);
   font: 500 15px/1 'IBM Plex Sans', sans-serif;
+  /* Four buttons now share the row instead of three — "Full board" is a snug
+     fit at the narrower width, so guard against it (or any label) wrapping
+     to two lines while the others stay single-line. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0 4px;
 
   &--on {
     border-color: var(--kz-primary);
     background: var(--kz-pressed-bg);
+  }
+
+  /* Hint: idle border weight only (same ink/rule tokens) — Undo stays at the
+     shared base's 1px as the neutral "contextual" middle ground; doesn't
+     touch --on, which still applies on top when Hint is toggled active. */
+  &--elevated {
+    border-width: 1.5px;
+  }
+
+  /* Reset: visually recedes relative to Hint/Undo/Zoom — a one-tap action with
+     no undo of its own shouldn't read as equally safe to reach for. */
+  &--muted {
+    border-color: var(--kz-rule-list);
+    color: var(--kz-hint);
+  }
+
+  /* Reset, armed: the inline "tap again to confirm" state — a deliberate,
+     attention-getting look, replacing a disruptive confirm() dialog. */
+  &--armed {
+    border-color: var(--kz-shu);
+    color: var(--kz-shu);
   }
 
   &:disabled {

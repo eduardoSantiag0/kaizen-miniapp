@@ -1,0 +1,45 @@
+@let e = entry();
+
+@if (tappable()) {
+  <a
+    class="kz-game-row"
+    [class.kz-game-row--no-divider]="noDividerAbove()"
+    [routerLink]="['/game', e.id]"
+    [attr.aria-label]="accessibleName()"
+  >
+    <ng-container [ngTemplateOutlet]="rowContent" />
+  </a>
+} @else {
+  <div class="kz-game-row kz-game-row--static" [class.kz-game-row--no-divider]="noDividerAbove()">
+    <ng-container [ngTemplateOutlet]="rowContent" />
+  </div>
+}
+
+<ng-template #rowContent>
+  <div class="kz-game-row-thumb" [style.--kz-thumb-board-size]="e.boardSize" aria-hidden="true">
+    <span class="kz-game-row-stone" [class.kz-game-row-stone--white]="e.userSign === -1"></span>
+  </div>
+
+  <div class="kz-game-row-text">
+    <div class="kz-game-row-name-line">
+      <span class="kz-game-row-name">{{ e.opponentName }}</span>
+      @if (e.opponentRank) {
+        <span class="kz-game-row-rank">{{ e.opponentRank }}</span>
+      }
+    </div>
+    <p class="kz-game-row-meta">{{ metaText() }}</p>
+    <p class="kz-game-row-status" [class]="'kz-game-row-status--' + e.status">{{ statusText() }}</p>
+  </div>
+
+  <div class="kz-game-row-right" [class.kz-game-row-right--no-chevron]="!tappable()">
+    <div class="kz-game-row-outcome">
+      <span class="kz-game-row-outcome-label" [class.kz-game-row-outcome-label--won]="e.won">{{ outcomeLabel() }}</span>
+      <span class="kz-game-row-outcome-result">{{ e.result }}</span>
+    </div>
+    @if (tappable()) {
+      <svg class="kz-game-row-chevron" width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+        <path d="M7 4l5 5-5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+    }
+  </div>
+</ng-template>

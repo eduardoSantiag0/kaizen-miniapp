@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
+import { provideRouter, Router } from '@angular/router';
 import { of } from 'rxjs';
 import { ExercisePageComponent } from './exercise-page.component';
 import { GameHistoryService } from '../data/game-history.service';
@@ -19,6 +20,9 @@ class StubGameHistoryService extends GameHistoryService {
     openingAnalysed: null,
     middlegameAnalysed: BRANCHING_SGF,
     endgameAnalysed: null,
+    blackPlayer: null,
+    whitePlayer: null,
+    gameRank: null,
   };
 
   readonly requestedGameIds: string[] = [];
@@ -26,6 +30,10 @@ class StubGameHistoryService extends GameHistoryService {
   override getGameHistory(gameId: string) {
     this.requestedGameIds.push(gameId);
     return of(this.dto);
+  }
+
+  override listGames() {
+    return of([this.dto]);
   }
 }
 
@@ -37,7 +45,7 @@ describe('ExercisePageComponent', () => {
     delete window.Telegram;
     TestBed.configureTestingModule({
       imports: [ExercisePageComponent],
-      providers: [{ provide: GameHistoryService, useClass: StubGameHistoryService }],
+      providers: [provideRouter([]), { provide: GameHistoryService, useClass: StubGameHistoryService }],
     });
     // Obtained (and mutable) before the component is created, since its
     // constructor subscribes to getGameHistory() synchronously.
@@ -63,18 +71,43 @@ describe('ExercisePageComponent', () => {
     expect(fixture.nativeElement.querySelector('.shudan-goban')).not.toBeNull();
   });
 
-  it('shows the sgfError screen when the SGF has no exercise branch point', () => {
+  it('orders Board, then KaizenMessage, then ExerciseTools (user-requested order, overriding HANDOFF.md section 5 here)', () => {
+    createFixture().detectChanges();
+
+    const container = fixture.nativeElement.querySelector('.kz-exercise-page') as HTMLElement;
+    const tags = Array.from(container.children).map((el) => el.tagName.toLowerCase());
+
+    const boardIndex = tags.indexOf('kz-goban-view');
+    const messageIndex = tags.indexOf('kz-kaizen-message');
+    const toolsIndex = tags.indexOf('kz-exercise-tools');
+
+    expect(boardIndex).toBeGreaterThanOrEqual(0);
+    expect(messageIndex).toBeGreaterThan(boardIndex);
+    expect(toolsIndex).toBeGreaterThan(messageIndex);
+  });
+
+  it('shows the sgfError screen when the SGF has no exercise branch point, still rendering KaizenMessage without Board/Tools', () => {
     stubHistory.dto = { ...stubHistory.dto, middlegameAnalysed: '(;FF[4]SZ[9];B[cc];W[gg])' };
     createFixture().detectChanges();
 
     expect(fixture.componentInstance.state().screen).toBe('sgfError');
+    expect(fixture.nativeElement.querySelector('kz-kaizen-message')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('kz-goban-view')).toBeNull();
+    expect(fixture.nativeElement.querySelector('kz-exercise-tools')).toBeNull();
+  });
+
+  it('tapping a legal point plays it immediately, with no preview/confirm step', () => {
+    createFixture().detectChanges();
+
+    fixture.componentInstance.onVertexTap([4, 2]); // ec, correct
+
+    expect(fixture.componentInstance.state().board.get([4, 2])).toBe(1);
   });
 
   it('plays a correct move, replies as the opponent after ~900ms, and advances the step', fakeAsync(() => {
     createFixture().detectChanges();
 
     fixture.componentInstance.onVertexTap([4, 2]); // ec
-    fixture.componentInstance.play();
 
     expect(fixture.componentInstance.state().phase).toBe('reply');
 
@@ -90,7 +123,6 @@ describe('ExercisePageComponent', () => {
     createFixture().detectChanges();
 
     fixture.componentInstance.onVertexTap([4, 2]); // ec, correct
-    fixture.componentInstance.play();
     fixture.detectChanges();
 
     expect(fixture.componentInstance.state().phase).toBe('reply');
@@ -108,7 +140,6 @@ describe('ExercisePageComponent', () => {
     createFixture().detectChanges();
 
     fixture.componentInstance.onVertexTap([5, 2]); // fc, the mistake
-    fixture.componentInstance.play();
     fixture.detectChanges();
 
     const state = fixture.componentInstance.state();
@@ -135,15 +166,130 @@ describe('ExercisePageComponent', () => {
     spyOn(telegram, 'notificationHaptic');
     createFixture().detectChanges();
 
-    fixture.componentInstance.onVertexTap([4, 2]); // ec, legal preview
+    fixture.componentInstance.onVertexTap([4, 2]); // ec, legal and correct
 
     expect(telegram.notificationHaptic).not.toHaveBeenCalled();
   });
 
+  it('onUndo reverts the last move via the Undo tool button', fakeAsync(() => {
+    createFixture().detectChanges();
+
+    fixture.componentInstance.onVertexTap([4, 2]); // ec, correct
+    tick(900); // opponent's reply (fc), now at step 2
+    expect(fixture.componentInstance.state().step).toBe(2);
+
+    expect(fixture.componentInstance.canUndoState()).toBe(true);
+    fixture.componentInstance.onUndo();
+    fixture.detectChanges();
+
+    const state = fixture.componentInstance.state();
+    expect(state.phase).toBe('play');
+    expect(state.step).toBe(1);
+    expect(state.board.get([4, 2])).toBe(0);
+  }));
+
+  it('Undo is disabled on a fresh exercise and during the opponent-reply lock', fakeAsync(() => {
+    createFixture().detectChanges();
+    expect(fixture.componentInstance.canUndoState()).toBe(false);
+
+    fixture.componentInstance.onVertexTap([4, 2]); // correct -> 'reply'
+    expect(fixture.componentInstance.state().phase).toBe('reply');
+    expect(fixture.componentInstance.canUndoState()).toBe(false);
+
+    tick(900);
+  }));
+
+  it('clicking the real Undo button in the DOM reverts the last move', fakeAsync(() => {
+    createFixture().detectChanges();
+
+    fixture.componentInstance.onVertexTap([4, 2]); // ec, correct
+    tick(900); // opponent's reply (fc), now at step 2
+    fixture.detectChanges();
+
+    const toolButtons: HTMLButtonElement[] = Array.from(fixture.nativeElement.querySelectorAll('button'));
+    const undoButton = toolButtons.find((b) => b.textContent?.trim() === 'Undo') as HTMLButtonElement;
+    expect(undoButton).toBeTruthy();
+    expect(undoButton.disabled).toBe(false);
+
+    undoButton.click();
+    fixture.detectChanges();
+
+    const state = fixture.componentInstance.state();
+    expect(state.phase).toBe('play');
+    expect(state.step).toBe(1);
+    expect(state.board.get([4, 2])).toBe(0);
+  }));
+
+  it('hides the Tools row once the line is done, but keeps Board/Message visible (progressive disclosure)', fakeAsync(() => {
+    createFixture().detectChanges();
+
+    fixture.componentInstance.onVertexTap([4, 2]); // ec, correct
+    tick(900); // opponent's reply (fc)
+    fixture.componentInstance.onVertexTap([4, 3]); // ed, correct, final move
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.state().phase).toBe('done');
+    expect(fixture.componentInstance.showTools()).toBe(false);
+
+    const tools = fixture.nativeElement.querySelector('kz-exercise-tools') as HTMLElement;
+    expect(tools.classList.contains('kz-tools--hidden')).toBe(true);
+    expect(tools.getAttribute('aria-hidden')).toBe('true');
+
+    // Board and message stay visible — only Tools hands off to Actions.
+    expect(fixture.nativeElement.querySelector('.shudan-goban')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('kz-kaizen-message')).not.toBeNull();
+  }));
+
+  it('keeps Tools visible (not hidden) for the wrong phase — Undo/Reset/Hint/Zoom still matter there', () => {
+    createFixture().detectChanges();
+
+    fixture.componentInstance.onVertexTap([5, 2]); // fc, the mistake — wrong
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.state().phase).toBe('wrong');
+    expect(fixture.componentInstance.showTools()).toBe(true);
+
+    const tools = fixture.nativeElement.querySelector('kz-exercise-tools') as HTMLElement;
+    expect(tools.classList.contains('kz-tools--hidden')).toBe(false);
+  });
+
+  it('shows Tools again after Reset brings a done exercise back to play', fakeAsync(() => {
+    createFixture().detectChanges();
+
+    fixture.componentInstance.onVertexTap([4, 2]);
+    tick(900);
+    fixture.componentInstance.onVertexTap([4, 3]);
+    expect(fixture.componentInstance.state().phase).toBe('done');
+    expect(fixture.componentInstance.showTools()).toBe(false);
+
+    fixture.componentInstance.onReset();
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.state().phase).toBe('play');
+    expect(fixture.componentInstance.showTools()).toBe(true);
+  }));
+
+  it('celebrate is true only while freshly done, and re-arms after a reset', fakeAsync(() => {
+    createFixture().detectChanges();
+    expect(fixture.componentInstance.celebrate()).toBe(false);
+
+    fixture.componentInstance.onVertexTap([4, 2]);
+    tick(900);
+    fixture.componentInstance.onVertexTap([4, 3]);
+    expect(fixture.componentInstance.celebrate()).toBe(true);
+
+    fixture.componentInstance.onReset();
+    expect(fixture.componentInstance.celebrate()).toBe(false);
+
+    fixture.componentInstance.onVertexTap([4, 2]);
+    tick(900);
+    fixture.componentInstance.onVertexTap([4, 3]);
+    expect(fixture.componentInstance.celebrate()).toBe(true);
+  }));
+
   it('cancels a scheduled opponent reply and does not touch state after destroy', fakeAsync(() => {
     createFixture().detectChanges();
     fixture.componentInstance.onVertexTap([4, 2]);
-    fixture.componentInstance.play();
     expect(fixture.componentInstance.state().phase).toBe('reply');
 
     fixture.destroy();
@@ -195,10 +341,8 @@ describe('ExercisePageComponent', () => {
       fixture.detectChanges();
 
       fixture.componentInstance.onVertexTap([4, 2]); // ec, correct
-      fixture.componentInstance.play();
       tick(900); // opponent's reply (fc)
       fixture.componentInstance.onVertexTap([4, 3]); // ed, correct, final move
-      fixture.componentInstance.play();
       fixture.detectChanges();
 
       expect(fixture.componentInstance.state().phase).toBe('done');
@@ -213,5 +357,24 @@ describe('ExercisePageComponent', () => {
 
       expect(emitted).toBe(true);
     }));
+  });
+
+  it('metaText shows both players, by name, not just the opponent', () => {
+    const sgfWithNames =
+      '(;FF[4]SZ[9]AB[cc]AW[gg]PB[the_user]BR[4k]PW[kitsune77]WR[3k]PC[OGS]PL[B](;B[ec])(;B[fc]))';
+    stubHistory.dto = { ...stubHistory.dto, middlegameAnalysed: sgfWithNames };
+    createFixture().detectChanges();
+
+    expect(fixture.componentInstance.metaText()).toBe('the_user 4k vs kitsune77 3k · OGS');
+  });
+
+  it('backToGames navigates to the root route (GamesPage)', () => {
+    createFixture().detectChanges();
+    const router = TestBed.inject(Router);
+    spyOn(router, 'navigate');
+
+    fixture.componentInstance.backToGames();
+
+    expect(router.navigate).toHaveBeenCalledWith(['/']);
   });
 });

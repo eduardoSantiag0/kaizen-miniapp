@@ -1,7 +1,9 @@
 :host {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  min-height: 100vh; /* fallback for WebViews without dvh support */
+  min-height: 100dvh; /* excludes the mobile browser/WebView chrome that 100vh counts */
+  min-height: var(--kz-viewport-height); /* Telegram's own stable height when running inside Telegram (SafeAreaService) */
   max-width: 390px;
   margin: 0 auto;
   /* Telegram's own chrome (e.g. its header in iOS expanded mode) can overlap the WebView's top — see SafeAreaService. */

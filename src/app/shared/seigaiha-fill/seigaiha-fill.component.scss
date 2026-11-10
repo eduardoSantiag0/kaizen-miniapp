@@ -8,7 +8,10 @@
   background-size: cover;
   -webkit-mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.55) 45%, #000 100%);
   mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.55) 45%, #000 100%);
-  padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  /* Device-level safe area AND Telegram's own chrome overlapping the WebView
+     (contentSafeAreaInset) — the actual scrollable end of the page, so the
+     user can always scroll fully past both to reach the actions above. */
+  padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px) + var(--kz-content-safe-bottom, 0px));
 }
 
 :host-context([data-theme='dark']) {

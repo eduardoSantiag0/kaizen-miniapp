@@ -103,6 +103,56 @@ describe('GobanAdapterComponent', () => {
     expect(el.classList.contains('kz-last-move')).toBe(true);
   });
 
+  it('draws the wrong-move cross with a symmetric, self-contained box — even when the vertex is also last-move (regression)', async () => {
+    const board = emptyBoard(9);
+    board[2][2] = 1;
+    fixture.componentInstance.signMap.set(board);
+    // A wrong move is always the last move too, so both classes land on the
+    // same vertex in practice — this exact combination is what let the
+    // .kz-last-move ::after rule's width/height/transform (meant for its own
+    // differently-sized dot) leak into .kz-wrong's cross and drag it visibly
+    // off-center, even though .kz-wrong's own inset was perfectly symmetric.
+    fixture.componentInstance.vertexClasses.set([
+      { vertex: [2, 2], className: 'kz-last-move' },
+      { vertex: [2, 2], className: 'kz-wrong' },
+    ]);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const stone = fixture.nativeElement.querySelector(
+      '.shudan-vertex[data-x="2"][data-y="2"] .shudan-stone'
+    ) as HTMLElement;
+    const after = getComputedStyle(stone, '::after');
+
+    // A font-glyph cross (the old '\2715' approach) has no such guarantee —
+    // ink isn't centered in the glyph's own em-box. A gradient-drawn cross
+    // only needs a symmetric inset and no stray transform to land dead-center.
+    expect(after.content).not.toContain('2715');
+    expect(after.top).toBe(after.bottom);
+    expect(after.left).toBe(after.right);
+    expect(after.width).toBe(after.height);
+    expect(after.transform).toBe('none');
+  });
+
+  it('removes a stale vertex class once it stops being passed, even when Shudan itself has no reason to touch that vertex (regression)', async () => {
+    fixture.componentInstance.vertexClasses.set([{ vertex: [5, 5], className: 'kz-test-overlay' }]);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    let el = fixture.nativeElement.querySelector('.shudan-vertex[data-x="5"][data-y="5"]') as HTMLElement;
+    expect(el.classList.contains('kz-test-overlay')).toBe(true);
+
+    // signMap is untouched, so Shudan's own computed output for this vertex is
+    // identical across these two renders — this is exactly the "stone stays the
+    // same sign, only our own overlay class changes" case that triggered the bug.
+    fixture.componentInstance.vertexClasses.set([]);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    el = fixture.nativeElement.querySelector('.shudan-vertex[data-x="5"][data-y="5"]') as HTMLElement;
+    expect(el.classList.contains('kz-test-overlay')).toBe(false);
+  });
+
   it('unmounts the Preact tree on destroy, leaving no Shudan DOM behind', async () => {
     fixture.componentInstance.mounted.set(false);
     fixture.detectChanges();
