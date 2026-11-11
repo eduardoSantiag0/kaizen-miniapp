@@ -101,7 +101,7 @@ export class ExercisePageComponent {
   readonly metaText = computed(() => {
     const exercise = this.exercise();
     if (!exercise) return '';
-    const players = exercise.userLabel ? `${exercise.userLabel} vs ${exercise.opponentLabel}` : `vs ${exercise.opponentLabel}`;
+    const players = exercise.blackLabel ? `${exercise.blackLabel} vs ${exercise.whiteLabel}` : `vs ${exercise.whiteLabel}`;
     return exercise.server ? `${players} · ${exercise.server}` : players;
   });
 
@@ -109,7 +109,7 @@ export class ExercisePageComponent {
     const line = this.line();
     // messageForScreen/actionsForScreen only return null for 'ready', and line is only ever
     // null before a 'ready' state exists (see loadGame), so the fallbacks below never run.
-    return line ? messageFor(this.state(), line) : messageForScreen(this.state().screen)!;
+    return line ? messageFor(this.state(), line, !this.hasNext()) : messageForScreen(this.state().screen)!;
   });
 
   readonly actions = computed(() => {
@@ -174,9 +174,10 @@ export class ExercisePageComponent {
     this.gameHistory.getGameHistory(gameId).subscribe({
       next: (dto) => {
         try {
-          const loaded = loadExercise(dto, this.sgfParser);
-          this.exercise.set(loaded);
-          this.state.set(initExerciseState(loaded.line));
+          const collection = loadExerciseCollection(dto, this.sgfParser);
+          this.collection.set(collection);
+          this.collectionIndex.set(0);
+          this.state.set(initExerciseState(collection[0].line));
         } catch (error) {
           if (error instanceof UnreadableSgfError || error instanceof UnreadableExerciseError) {
             this.state.update((s) => ({ ...s, screen: 'sgfError' }));
@@ -232,10 +233,22 @@ export class ExercisePageComponent {
     this.router.navigate(['/']);
   };
 
-  /** The 'done' phase's secondary action (menu mode: "Back to games"; a future session wrapper can listen to doneSecondaryAction instead to do something else, e.g. "Next exercise"). */
+  /**
+   * The 'done' phase's secondary action: steps to the next exercise in this
+   * game's collection while one remains (correctSecondaryLabel already reads
+   * "Next exercise" in that case), otherwise falls back to "Back to games".
+   * doneSecondaryAction fires either way, for a future session wrapper to observe.
+   */
   onDoneSecondary(): void {
     this.doneSecondaryAction.emit();
-    this.backToGames();
+
+    if (this.hasNext()) {
+      this.collectionIndex.update((i) => i + 1);
+      const next = this.exercise();
+      if (next) this.state.set(initExerciseState(next.line));
+    } else {
+      this.backToGames();
+    }
   }
 
   private scheduleOpponentReply(line: ExerciseLine): void {

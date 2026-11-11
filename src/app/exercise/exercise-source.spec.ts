@@ -37,11 +37,20 @@ describe('loadExerciseCollection', () => {
   });
 
   it('reads both players and the server from the SGF game-info properties', () => {
-    // branchingSgf has PL[B], so the user is Black (alice) and the opponent is White (bob).
     const [result] = loadExerciseCollection(dto({ middlegameAnalysed: branchingSgf }), sgfParser);
-    expect(result.userLabel).toBe('alice 5k');
-    expect(result.opponentLabel).toBe('bob 2k');
+    expect(result.blackLabel).toBe('alice 5k');
+    expect(result.whiteLabel).toBe('bob 2k');
     expect(result.server).toBe('OGS');
+  });
+
+  it('keeps Black/White order regardless of which color the user plays, so it stays stable across phases', () => {
+    // Same players, but here PL[W] makes the user White (bob) instead of Black (alice).
+    const sgfUserIsWhite =
+      '(;FF[4]PC[OGS: https://online-go.com/game/1]PB[alice]BR[5k]PW[bob]WR[2k]SZ[9]PL[W]' +
+      '(;W[ec])(;W[fc]))';
+    const [result] = loadExerciseCollection(dto({ middlegameAnalysed: sgfUserIsWhite }), sgfParser);
+    expect(result.blackLabel).toBe('alice 5k');
+    expect(result.whiteLabel).toBe('bob 2k');
   });
 
   it('throws when no phase SGF has a usable branch point', () => {

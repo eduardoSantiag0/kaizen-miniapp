@@ -335,10 +335,13 @@ describe('ExercisePageComponent', () => {
       expect(telegram.showBackButton).not.toHaveBeenCalled();
     });
 
-    it('uses correctSecondaryLabel for the done phase\'s secondary action, and fires doneSecondaryAction on click', fakeAsync(() => {
-      createFixture();
-      fixture.componentRef.setInput('correctSecondaryLabel', 'Next exercise');
-      fixture.detectChanges();
+    it('uses "Back to games" for a single-exercise game, and backToGames navigates on click', fakeAsync(() => {
+      createFixture().detectChanges();
+      expect(fixture.componentInstance.hasNext()).toBe(false);
+      expect(fixture.componentInstance.correctSecondaryLabel()).toBe('Back to games');
+
+      const router = TestBed.inject(Router);
+      spyOn(router, 'navigate');
 
       fixture.componentInstance.onVertexTap([4, 2]); // ec, correct
       tick(900); // opponent's reply (fc)
@@ -351,11 +354,58 @@ describe('ExercisePageComponent', () => {
       fixture.componentInstance.doneSecondaryAction.subscribe(() => (emitted = true));
 
       const buttons: HTMLElement[] = Array.from(fixture.nativeElement.querySelectorAll('button'));
-      const button = buttons.find((el) => el.textContent?.includes('Next exercise'));
+      const button = buttons.find((el) => el.textContent?.includes('Back to games'));
       expect(button).toBeTruthy();
       button!.click();
 
       expect(emitted).toBe(true);
+      expect(router.navigate).toHaveBeenCalledWith(['/']);
+    }));
+
+    it('steps to the next exercise in the collection instead of navigating away, swapping the label and completion copy on the way', fakeAsync(() => {
+      // Both phases parse into usable exercises, so this game has a 2-exercise collection.
+      stubHistory.dto = { ...stubHistory.dto, openingAnalysed: BRANCHING_SGF, middlegameAnalysed: BRANCHING_SGF };
+      createFixture().detectChanges();
+
+      expect(fixture.componentInstance.hasNext()).toBe(true);
+      expect(fixture.componentInstance.correctSecondaryLabel()).toBe('Next exercise');
+
+      const router = TestBed.inject(Router);
+      spyOn(router, 'navigate');
+
+      fixture.componentInstance.onVertexTap([4, 2]); // ec, correct
+      tick(900); // opponent's reply (fc)
+      fixture.componentInstance.onVertexTap([4, 3]); // ed, correct, final move
+      fixture.detectChanges();
+
+      expect(fixture.componentInstance.state().phase).toBe('done');
+      expect(fixture.componentInstance.message().body).not.toContain('opening, middlegame and endgame');
+
+      let emitted = false;
+      fixture.componentInstance.doneSecondaryAction.subscribe(() => (emitted = true));
+
+      const buttons: HTMLElement[] = Array.from(fixture.nativeElement.querySelectorAll('button'));
+      const button = buttons.find((el) => el.textContent?.includes('Next exercise'));
+      expect(button).toBeTruthy();
+      button!.click();
+      fixture.detectChanges();
+
+      expect(emitted).toBe(true);
+      expect(router.navigate).not.toHaveBeenCalled();
+
+      // Landed on the second (last) exercise, freshly reset to 'play'.
+      expect(fixture.componentInstance.state().phase).toBe('play');
+      expect(fixture.componentInstance.state().step).toBe(1);
+      expect(fixture.componentInstance.hasNext()).toBe(false);
+      expect(fixture.componentInstance.correctSecondaryLabel()).toBe('Back to games');
+
+      fixture.componentInstance.onVertexTap([4, 2]); // ec, correct
+      tick(900);
+      fixture.componentInstance.onVertexTap([4, 3]); // ed, correct, final move
+      fixture.detectChanges();
+
+      expect(fixture.componentInstance.state().phase).toBe('done');
+      expect(fixture.componentInstance.message().body).toContain('opening, middlegame and endgame');
     }));
   });
 
@@ -367,6 +417,29 @@ describe('ExercisePageComponent', () => {
 
     expect(fixture.componentInstance.metaText()).toBe('the_user 4k vs kitsune77 3k · OGS');
   });
+
+  it('keeps the player names in the same Black/White order across phases, even when the user\'s color differs between them (regression)', fakeAsync(() => {
+    // Opening: user is Black (alice). Middlegame: same two players, but user is White (bob) this time.
+    const openingUserIsBlack =
+      '(;FF[4]SZ[9]AB[cc]AW[gg]PB[alice]BR[4k]PW[bob]WR[3k]PC[OGS]PL[B](;B[ec];W[fc])(;B[fc]))';
+    const middlegameUserIsWhite =
+      '(;FF[4]SZ[9]AB[cc]AW[gg]PB[alice]BR[4k]PW[bob]WR[3k]PC[OGS]PL[W](;W[ec];B[fc])(;W[fc]))';
+    stubHistory.dto = {
+      ...stubHistory.dto,
+      openingAnalysed: openingUserIsBlack,
+      middlegameAnalysed: middlegameUserIsWhite,
+    };
+    createFixture().detectChanges();
+
+    expect(fixture.componentInstance.metaText()).toBe('alice 4k vs bob 3k · OGS');
+
+    fixture.componentInstance.onVertexTap([4, 2]); // ec, correct
+    tick(900);
+    fixture.componentInstance.onDoneSecondary(); // advance to middlegame exercise
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.metaText()).toBe('alice 4k vs bob 3k · OGS');
+  }));
 
   it('backToGames navigates to the root route (GamesPage)', () => {
     createFixture().detectChanges();

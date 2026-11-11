@@ -55,6 +55,9 @@ export class GobanViewComponent {
     if (state.phase === 'wrong' && state.wrongMove) {
       classes.push({ vertex: state.wrongMove.vertex, className: 'kz-wrong' });
     }
+    if (state.phase === 'play' && state.step === 1 && !state.lastMove && line.mistakeVertex) {
+      classes.push({ vertex: line.mistakeVertex, className: 'kz-mistake-point' });
+    }
     if (state.illegal) {
       classes.push({ vertex: state.illegal.vertex, className: 'kz-illegal' });
     }

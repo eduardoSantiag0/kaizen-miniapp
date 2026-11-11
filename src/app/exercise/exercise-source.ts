@@ -6,9 +6,9 @@ import { buildExerciseLine, UnreadableExerciseError, type ExerciseLine } from '.
 export interface LoadedExercise {
   phase: GamePhase;
   line: ExerciseLine;
-  /** Read straight from the SGF's own PB/PW/BR/WR — not a DTO field. */
-  userLabel: string;
-  opponentLabel: string;
+  /** Read straight from the SGF's own PB/PW/BR/WR — not a DTO field. Always Black/White, regardless of which color the user is (which can differ per phase of the same game), so the meta line's name order stays stable across exercises. */
+  blackLabel: string;
+  whiteLabel: string;
   /** Read from the SGF's PC field when it names OGS or DGS; '' otherwise. */
   server: string;
 }
@@ -39,7 +39,7 @@ export function loadExerciseCollection(dto: GameHistoryDto, sgfParser: SgfParser
     try {
       const tree = sgfParser.parse(sgf);
       const line = buildExerciseLine(tree.root);
-      results.push({ phase, line, ...gameInfo(tree, line.userSign) });
+      results.push({ phase, line, ...gameInfo(tree) });
     } catch (error) {
       lastError = error;
     }
@@ -60,17 +60,15 @@ function phaseKey(phase: GamePhase): keyof GameHistoryDto {
       : 'endgameAnalysed';
 }
 
-function gameInfo(tree: GameTree, userSign: 1 | -1): { userLabel: string; opponentLabel: string; server: string } {
+function gameInfo(tree: GameTree): { blackLabel: string; whiteLabel: string; server: string } {
   const data = tree.root.data;
-  const black = label(data['PB']?.[0], data['BR']?.[0]);
-  const white = label(data['PW']?.[0], data['WR']?.[0]);
-  const userLabel = userSign === 1 ? black : white;
-  const opponentLabel = userSign === 1 ? white : black;
+  const blackLabel = label(data['PB']?.[0], data['BR']?.[0]);
+  const whiteLabel = label(data['PW']?.[0], data['WR']?.[0]);
 
   const pc = data['PC']?.[0] ?? '';
   const server = /ogs|online-go/i.test(pc) ? 'OGS' : /dgs|dragongoserver/i.test(pc) ? 'DGS' : '';
 
-  return { userLabel, opponentLabel, server };
+  return { blackLabel, whiteLabel, server };
 }
 
 function label(name?: string, rank?: string): string {

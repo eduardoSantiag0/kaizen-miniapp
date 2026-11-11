@@ -48,7 +48,7 @@ export function messageForScreen(screen: ExerciseState['screen']): KaizenMessage
   }
 }
 
-export function messageFor(state: ExerciseState, line: ExerciseLine): KaizenMessageCopy {
+export function messageFor(state: ExerciseState, line: ExerciseLine, isFinalExercise: boolean): KaizenMessageCopy {
   const screenCopy = messageForScreen(state.screen);
   if (screenCopy) return screenCopy;
 
@@ -107,7 +107,9 @@ export function messageFor(state: ExerciseState, line: ExerciseLine): KaizenMess
     case 'done':
       return {
         title: 'Correct',
-        body: `All ${state.totalSteps} moves of KataGo's line. One step better than yesterday.`,
+        body: isFinalExercise
+          ? `All ${state.totalSteps} moves of KataGo's line. That's this game done: opening, middlegame and endgame.`
+          : `All ${state.totalSteps} moves of KataGo's line. One step better than yesterday.`,
         tone: 'pine',
         emphasized: true,
       };
