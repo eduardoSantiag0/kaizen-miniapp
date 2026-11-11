@@ -1,11 +1,12 @@
-# GET /history — proposal: surfacing in-progress jobs (PROPOSAL ONLY, NOT IMPLEMENTED)
+# GET /history — proposal: surfacing in-progress jobs (IMPLEMENTED)
 
-Status: **proposal, nothing in this document has been implemented.** No backend
-code has been written or changed to produce this document — it is read-only
-analysis plus a recommendation, same approval gate as every other backend
-change in this project (see `integration-manager.md`'s "Require explicit user
-approval for... Breaking changes to existing APIs"). Written for the user,
-relayed via `kaizen-supervisor`.
+Status: **implemented and verified**, with the user's explicit sign-off on
+all three open decisions below (status mapping, the breaking DTO swap, and
+skipping player-name parsing for in-progress jobs). What follows is kept as
+the original proposal/analysis for context; see `MiniAppService`,
+`MiniAppController`, `GameHistoryItemDto`, and `GameAnalysisRepository`'s
+`ORDER BY` change in `kaizan-companion` for the actual landed implementation,
+and `MiniAppServiceTest` for its test coverage.
 
 Backend repo root: `kaizan-companion/`, branch `feature/miniapp-api`, on top of
 commit `aa93e001e5bcea2db09a357097f553e0ca92413a` plus the uncommitted

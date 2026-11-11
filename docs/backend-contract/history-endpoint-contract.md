@@ -49,32 +49,54 @@ below).
 
 ## 3. Response shape
 
-`200 OK` with a JSON array of `GameHistoryDto` (`miniapp/GameHistoryDto.java`).
-
-**Shape changed since the last pass of this document** — three fields were
-added:
+`200 OK` with a JSON array of **`GameHistoryItemDto`**
+(`miniapp/GameHistoryItemDto.java`) — **the controller's return type changed
+again since the last pass of this document.** `GameHistoryDto`
+(`miniapp/GameHistoryDto.java`) still exists and is still what
+`GameAnalysisRepository.findHistoryByChat` returns internally, but it is no
+longer what the HTTP response serializes — `MiniAppController.getAllGames`
+now returns `List<GameHistoryItemDto>`, assembled by `MiniAppService` from
+two sources (see `history-endpoint-job-status-proposal.md` in this directory
+for the full design rationale; this section documents the shape as landed):
 
 ```json
 [
   {
     "id": "uuid",
     "correlationId": "uuid",
-    "openingAnalysed": "string | null  — opening-phase SGF text",
-    "middlegameAnalysed": "string | null  — middlegame-phase SGF text",
-    "endgameAnalysed": "string | null  — endgame-phase SGF text",
-    "blackPlayer": "string | null  — black player's name, from the original SGF's PB[] tag",
-    "whitePlayer": "string | null  — white player's name, from the original SGF's PW[] tag",
-    "gameRank": "string | null  — rank string, see below"
+    "status": "DONE | RUNNING | WAITING",
+    "openingAnalysed": "string | null  — opening-phase SGF text, null unless status is DONE",
+    "middlegameAnalysed": "string | null  — middlegame-phase SGF text, null unless status is DONE",
+    "endgameAnalysed": "string | null  — endgame-phase SGF text, null unless status is DONE",
+    "blackPlayer": "string | null  — black player's name from PB[], null unless status is DONE",
+    "whitePlayer": "string | null  — white player's name from PW[], null unless status is DONE",
+    "gameRank": "string | null  — rank string, see below, null unless status is DONE"
   }
 ]
 ```
 
-`game-history-dto.md` in this directory still only documents the original
-5-field shape and is now out of date on that point — see this document going
-forward for the live shape; a short pointer has been added there rather than
-rewriting it wholesale.
+**`status` is new and is the main point of this shape change.** It's a
+translated, frontend-facing string — never the backend's raw 7-value
+`JobStatus` enum:
 
-`gameRank` is **not** simply "the game's rank" — read `AnalysisAggregator.setPlayersInfo`
+- `"DONE"` — a finished `GameAnalysisEntity` row exists; all the SGF/player
+  fields above are populated exactly as the old 8-field `GameHistoryDto`
+  shape always was.
+- `"RUNNING"` — the underlying `AnalysisJobEntity.jobStatus` is `IN_QUEUE`.
+- `"WAITING"` — `jobStatus` is `ANALYSIS_REQUESTED` or `SUBMITTING`.
+- Jobs with `jobStatus` `FAILED`, `TIMED_OUT`, or `CANCELLED` are **excluded
+  from the array entirely** — there is no row, status string, or id for
+  them. (`TIMED_OUT`/`CANCELLED` are never actually written to a job's
+  status in the current codebase anyway; `FAILED` is the one of the three
+  that's real, and it's still excluded.)
+
+For a `RUNNING`/`WAITING` row, `id` and `correlationId` come from the
+`AnalysisJobEntity` itself (there is no `GameAnalysisEntity` row yet), and
+every other field is `null` — the per-phase SGF text and player/rank fields
+are only ever populated once a row reaches `DONE`.
+
+`gameRank` is **not** simply "the game's rank" when `status` is `DONE` —
+read `AnalysisAggregator.setPlayersInfo`
 (`features/analysis/AnalysisAggregator.java`) carefully before assuming a
 format: it's `"{blackRank}/{whiteRank}"` when both `BR[]` and `WR[]` are
 present on the original SGF, just `blackRank` alone if only `BR[]` is present,
@@ -82,20 +104,29 @@ just `whiteRank` alone if only `WR[]` is present, or `null` if neither is.
 Frontend should not assume a fixed `"X/Y"` shape — a bare rank with no slash
 is a valid value, not a parsing error.
 
-One game per array element, ordered by `g.id` (not by game date — same
-ordering `HistoryCommandHandler` already uses for `/history` in Telegram).
+**Ordering changed too.** The array is ordered by job-creation time
+descending (newest first) — **not** `g.id` as earlier passes of this
+document said. This is a change to `GameAnalysisRepository.findHistoryByChat`'s
+`ORDER BY` clause itself, so it also changes the file-delivery order of the
+existing Telegram `/history` command (`HistoryCommandHandler`), which shares
+that same query — this is a real, if minor, behavior change to pre-existing
+Telegram bot output, not something scoped only to the Mini App.
 
 There is still no "get one game" endpoint (the controller has a `// Get one
 game` comment with nothing under it) and still no data distinguishing "the
 user's mistake" from "KataGo's line" within a phase's SGF — the gap described
 in `mock-sgf-fixture-gap.md` is unchanged by this round too. The
-`black_player`/`white_player`/`game_rank` columns are no longer "unrelated,
-unprojected metadata" as the last pass of this document said — they are now
-wired end-to-end (migration → entity → `AnalysisAggregator` → repository JPQL
-→ DTO) and give Frontend real player names/ranks, likely useful for
-`GamesPage`'s row text or the Exercise screen's `vs {opponent} · {server}`
-meta line (HANDOFF.md section 5). They still don't touch the
-mistake/KataGo's-line tagging gap, which is a different problem.
+`black_player`/`white_player`/`game_rank` columns give Frontend real player
+names/ranks for `DONE` rows, likely useful for `GamesPage`'s row text or the
+Exercise screen's `vs {opponent} · {server}` meta line (HANDOFF.md section
+5). They still don't touch the mistake/KataGo's-line tagging gap, which is a
+different problem.
+
+**Known frontend-side gap:** `kaizen-miniapp`'s own `GameHistoryDto` model
+(`src/app/data/game-history.model.ts`) does not yet have a `status` field
+and doesn't know about this shape at all — see
+`game-history-item-contract-drift.md` in this directory for the full
+comparison. Not fixed here; that's Frontend's call.
 
 ## 4. Issues found and their status
 
@@ -253,8 +284,26 @@ Still do not point `GameHistoryService` at a real HTTP call. Issues #2-#6
 are fixed, but issue #1 (auth validation) means every request still fails —
 now as a `500` from `findById(null)` rather than anything resembling a real
 response. Keep using the mock until issue #1 is implemented and this
-document's DRAFT marker is removed. Once that lands, the route, the
-`Authorization: tma <initData>` header, and the `List<GameHistoryDto>`
-response shape documented above (now 8 fields, section 3) should hold without
-further change — but do read the `gameRank` format note in section 3 before
-rendering it; it is not always `"X/Y"`.
+document's DRAFT marker is removed.
+
+Once that lands, the route and the `Authorization: tma <initData>` header
+stay as documented above, but the response shape has changed since the last
+pass of this section: it is now `List<GameHistoryItemDto>` (section 3), not
+the old 8-field `GameHistoryDto`. Concretely, when wiring the real call:
+
+- Add a `status: "DONE" | "RUNNING" | "WAITING"` field to whatever frontend
+  type backs this response — it isn't optional decoration, it's what
+  `GamesPage`'s three-state row design (HANDOFF.md section 4) is meant to
+  read.
+- A `RUNNING`/`WAITING` row has `null` for every SGF/player field — this was
+  already true of the old shape's nullability, so no frontend-side type
+  change is needed there, just awareness that `null` now also means "no
+  analysis yet" and not only "this phase wasn't analysed for a finished
+  game."
+- The array is newest-first by job-creation time, not by `g.id`.
+- `gameRank` is still not always `"X/Y"` — same caveat as before, see
+  section 3.
+
+This gap (frontend's current model not having `status` yet) is tracked as
+its own item in `game-history-item-contract-drift.md` in this directory, not
+fixed here.

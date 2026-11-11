@@ -114,6 +114,13 @@
   font: 700 17px/1 'IBM Plex Sans', sans-serif;
 }
 
+/* 36px base gap plus whatever's needed to clear the device's own safe area
+   and Telegram's own chrome overlapping the WebView (contentSafeAreaInset) —
+   same pattern as seigaiha-fill's padding-bottom (the Exercise screen's
+   equivalent), folded into height here since this spacer has no content of
+   its own. GamesPage is a routed top-level component with no app.component
+   wrapper compensating globally, so this is the only thing standing between
+   the last game row and that chrome. */
 .kz-games-spacer {
-  height: 36px;
+  height: calc(36px + env(safe-area-inset-bottom, 0px) + var(--kz-content-safe-bottom, 0px));
 }

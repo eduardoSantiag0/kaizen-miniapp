@@ -20,7 +20,10 @@ Responsibilities:
 
 Rules:
 1. Never modify the Spring Boot backend.
-2. Follow the original design reference.
+2. Follow docs/design-handoff/kaizen-handoff/HANDOFF.md — the actual design
+   source of truth (not docs/design-reference/, which doesn't exist in this
+   repo).
+3. Follow I
 3. Follow Integration Manager's verified contracts.
 4. Prefer existing project dependencies.
 5. Evaluate WGo.js before choosing another SGF viewer.
