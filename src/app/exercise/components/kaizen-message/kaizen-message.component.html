@@ -1,5 +1,5 @@
 <div class="kz-message">
-  <div class="kz-message-head">
+  <div class="kz-message-head" [class.kz-message-head--celebrate]="celebrate()">
     <div class="kz-message-avatar-wrap">
       @if (celebrate()) {
         <span class="kz-message-glow" aria-hidden="true"></span>
@@ -22,5 +22,5 @@
       {{ title() }}
     </p>
   </div>
-  <p class="kz-message-body">{{ body() }}</p>
+  <p class="kz-message-body" [class.kz-message-body--celebrate]="celebrate()">{{ body() }}</p>
 </div>

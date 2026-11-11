@@ -1,5 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { parse } from '@sabaki/sgf';
+import type { Vertex } from '@sabaki/shudan';
 import { GobanViewComponent } from './goban-view.component';
 import { buildExerciseLine, type ExerciseLine } from '../../exercise-line';
 import {
@@ -101,5 +102,48 @@ describe('GobanViewComponent', () => {
 
     setState(undo(state, line));
     expect(hasMistakePoint()).toBe(true);
+  });
+
+  it('adds no kz-last-move marker on a fresh exercise when the line has no previousMove (no regression for today\'s real fixtures)', () => {
+    setState(initExerciseState(line));
+    expect(line.previousMove).toBeNull();
+    expect(fixture.componentInstance.vertexClasses().some((c) => c.className === 'kz-last-move')).toBe(false);
+  });
+
+  describe('previous-move marker (reuses kz-last-move, no new style)', () => {
+    // root -> single-child (;W[gc]) -> branch point. W[gc] is the real game's own
+    // last move leading into this position, before KataGo's line even starts.
+    const previousMoveLine = lineFromSgf('(;FF[4]SZ[9]AB[cc]PL[B];W[gc](;B[ec];W[fc])(;B[fc])(;B[hc]))');
+
+    function setPreviousMoveState(state: ExerciseState): void {
+      fixture = TestBed.createComponent(GobanViewComponent);
+      fixture.componentRef.setInput('state', state);
+      fixture.componentRef.setInput('line', previousMoveLine);
+      fixture.detectChanges();
+    }
+
+    function hasLastMoveMarkerAt(vertex: Vertex): boolean {
+      return fixture.componentInstance
+        .vertexClasses()
+        .some((c) => c.className === 'kz-last-move' && c.vertex[0] === vertex[0] && c.vertex[1] === vertex[1]);
+    }
+
+    it('marks the real last move before the branch point on a fresh exercise', () => {
+      expect(previousMoveLine.previousMove).toEqual({ sign: -1, vertex: [6, 2] }); // gc, White
+
+      setPreviousMoveState(initExerciseState(previousMoveLine));
+      expect(hasLastMoveMarkerAt([6, 2])).toBe(true);
+    });
+
+    it('disappears once the user plays', () => {
+      const fresh = initExerciseState(previousMoveLine);
+      // totalSteps is 1 here (kataGoLine is just ec/fc), so this correct move already
+      // reaches 'done' — either way, lastMove is now set, which is all this marker checks.
+      const afterMove = playVertex(fresh, previousMoveLine, [4, 2]); // ec, correct
+      expect(afterMove.lastMove).not.toBeNull();
+
+      setPreviousMoveState(afterMove);
+      expect(hasLastMoveMarkerAt([6, 2])).toBe(false);
+    });
   });
 });

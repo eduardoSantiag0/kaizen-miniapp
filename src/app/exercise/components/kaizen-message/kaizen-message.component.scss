@@ -11,6 +11,10 @@
   display: flex;
   align-items: center;
   gap: 12px;
+
+  &--celebrate {
+    gap: 20px;
+  }
 }
 
 .kz-message-avatar-wrap {
@@ -118,4 +122,9 @@
   margin-left: 48px;
   font: 400 14px/20px 'IBM Plex Sans', sans-serif;
   color: var(--kz-ink);
+
+  &--celebrate {
+    margin-left: 0;
+    text-align: center;
+  }
 }

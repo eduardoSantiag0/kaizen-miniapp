@@ -1,12 +1,22 @@
 :host {
-  display: block;
+  display: flex;
+  flex-direction: column;
   min-height: 100vh; /* fallback for WebViews without dvh support */
   min-height: 100dvh; /* excludes the mobile browser/WebView chrome that 100vh counts */
   min-height: var(--kz-viewport-height); /* Telegram's own stable height when running inside Telegram (SafeAreaService) */
   max-width: 390px;
   margin: 0 auto;
+  padding-top: var(--kz-content-safe-top, 0px);
+}
+
+.kz-games-page {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+}
+
+.kz-games-content {
   padding: 8px 16px 0;
-  padding-top: calc(8px + var(--kz-content-safe-top, 0px));
 }
 
 .kz-games-banner {
@@ -112,15 +122,4 @@
   background: var(--kz-primary);
   color: var(--kz-on-primary);
   font: 700 17px/1 'IBM Plex Sans', sans-serif;
-}
-
-/* 36px base gap plus whatever's needed to clear the device's own safe area
-   and Telegram's own chrome overlapping the WebView (contentSafeAreaInset) —
-   same pattern as seigaiha-fill's padding-bottom (the Exercise screen's
-   equivalent), folded into height here since this spacer has no content of
-   its own. GamesPage is a routed top-level component with no app.component
-   wrapper compensating globally, so this is the only thing standing between
-   the last game row and that chrome. */
-.kz-games-spacer {
-  height: calc(36px + env(safe-area-inset-bottom, 0px) + var(--kz-content-safe-bottom, 0px));
 }

@@ -3,6 +3,7 @@ import { GameHistoryService } from '../data/game-history.service';
 import { SgfParserService } from '../sgf/sgf-parser.service';
 import { TelegramService } from '../core/telegram.service';
 import { PaperBackgroundComponent } from '../shared/paper-background/paper-background.component';
+import { SeigaihaFillComponent } from '../shared/seigaiha-fill/seigaiha-fill.component';
 import { GameRowComponent } from './components/game-row/game-row.component';
 import { deriveGameListEntry, type GameListEntry } from './game-list-entry';
 import { isToday } from './game-list-format';
@@ -12,7 +13,7 @@ type Screen = 'loading' | 'ready' | 'error';
 
 @Component({
   selector: 'kz-games-page',
-  imports: [PaperBackgroundComponent, GameRowComponent],
+  imports: [PaperBackgroundComponent, SeigaihaFillComponent, GameRowComponent],
   templateUrl: './games-page.component.html',
   styleUrl: './games-page.component.scss',
 })

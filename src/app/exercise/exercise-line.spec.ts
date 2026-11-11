@@ -33,6 +33,8 @@ describe('buildExerciseLine', () => {
       [2, 5], // cf
     ]);
     expect(line.totalSteps).toBe(2);
+    // Root IS the branch point here — no move chain before it.
+    expect(line.previousMove).toBeNull();
   });
 
   it('caps the KataGo line at 9 plies (5 user moves + 4 replies)', () => {
@@ -44,6 +46,7 @@ describe('buildExerciseLine', () => {
     const line = buildExerciseLine(root);
     expect(line.kataGoLine.length).toBe(9);
     expect(line.totalSteps).toBe(5);
+    expect(line.previousMove).toBeNull();
   });
 
   it('throws UnreadableExerciseError when there is no branch point', () => {
@@ -60,5 +63,41 @@ describe('buildExerciseLine', () => {
     const line = buildExerciseLine(root);
     expect(line.userSign).toBe(1);
     expect(line.opponentSign).toBe(-1);
+    expect(line.previousMove).toBeNull();
+  });
+
+  it('matches every real games_test/ fixture today: root is the branch point directly, so previousMove is null and setupBoard is exactly the AB/AW setup (no latent stones from a chain that does not exist)', () => {
+    // Same shape as the real gakutakunokumekriff_*.sgf fixtures: root's own properties
+    // (AB/AW/PL) are immediately followed by the branch's sibling variations, no
+    // single-child chain in between.
+    const sgf =
+      '(;FF[4]SZ[9]AB[cc]AW[gg][hi][ih]PL[B](;B[ec];W[fc];B[ed];W[fd])(;B[fc])(;B[gc]))';
+    const root = parse(sgf)[0];
+
+    const line = buildExerciseLine(root);
+    expect(line.previousMove).toBeNull();
+    expect(line.setupBoard.get([2, 2])).toBe(1); // cc, AB
+    expect(line.setupBoard.get([6, 6])).toBe(-1); // gg, AW
+    // Nothing beyond the AB/AW setup is on the board — confirms the preceding-moves
+    // replay is a true no-op when there is no chain to replay.
+    expect(line.setupBoard.get([4, 2])).toBe(0); // ec — not yet played
+  });
+
+  it('replays a real preceding-move chain onto setupBoard and reports it as previousMove', () => {
+    // root -> single-child (;W[gc]) -> branch point, 3 siblings. W[gc] is the real
+    // game's own last move leading into this position, before KataGo's line even starts.
+    const sgf = '(;FF[4]SZ[9]AB[cc]PL[B];W[gc](;B[ec];W[fc])(;B[fc])(;B[hc]))';
+    const root = parse(sgf)[0];
+
+    const line = buildExerciseLine(root);
+
+    expect(line.previousMove).toEqual({ sign: -1, vertex: [6, 2] }); // gc, White
+    expect(line.setupBoard.get([6, 2])).toBe(-1); // the replayed stone is actually on the board
+    expect(line.setupBoard.get([2, 2])).toBe(1); // cc, AB — still there too
+    expect(line.kataGoLine.map((p) => p.vertex)).toEqual([
+      [4, 2], // ec
+      [5, 2], // fc
+    ]);
+    expect(line.mistakeVertex).toEqual([5, 2]); // fc, the second sibling
   });
 });

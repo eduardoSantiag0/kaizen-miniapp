@@ -1,83 +1,85 @@
 <kz-paper-background />
 
 <div class="kz-games-page">
-  <img class="kz-games-banner" src="/assets/kaizen-banner.jpg" alt="" width="358" height="104" />
+  <div class="kz-games-content">
+    <img class="kz-games-banner" src="/assets/kaizen-banner.jpg" alt="" width="358" height="104" />
 
-  <div class="kz-games-title-block">
-    <h1 class="kz-games-title">Games</h1>
-    <p class="kz-games-intro">Exported to Kaizen from OGS and DGS. Tap an analyzed game to practice your biggest mistake.</p>
-  </div>
+    <div class="kz-games-title-block">
+      <h1 class="kz-games-title">Games</h1>
+      <p class="kz-games-intro">Exported to Kaizen from OGS and DGS. Tap an analyzed game to practice your biggest mistake.</p>
+    </div>
 
-  <div class="kz-games-filters" role="group" aria-label="Filter by server">
-    <button
-      type="button"
-      class="kz-games-filter"
-      [class.kz-games-filter--active]="filter() === 'all'"
-      [attr.aria-pressed]="filter() === 'all'"
-      (click)="setFilter('all')"
-    >
-      All <span class="kz-games-filter-count">{{ counts().all }}</span>
-    </button>
-    <button
-      type="button"
-      class="kz-games-filter"
-      [class.kz-games-filter--active]="filter() === 'OGS'"
-      [attr.aria-pressed]="filter() === 'OGS'"
-      (click)="setFilter('OGS')"
-    >
-      OGS <span class="kz-games-filter-count">{{ counts().OGS }}</span>
-    </button>
-    <button
-      type="button"
-      class="kz-games-filter"
-      [class.kz-games-filter--active]="filter() === 'DGS'"
-      [attr.aria-pressed]="filter() === 'DGS'"
-      (click)="setFilter('DGS')"
-    >
-      DGS <span class="kz-games-filter-count">{{ counts().DGS }}</span>
-    </button>
-  </div>
+    <div class="kz-games-filters" role="group" aria-label="Filter by server">
+      <button
+        type="button"
+        class="kz-games-filter"
+        [class.kz-games-filter--active]="filter() === 'all'"
+        [attr.aria-pressed]="filter() === 'all'"
+        (click)="setFilter('all')"
+      >
+        All <span class="kz-games-filter-count">{{ counts().all }}</span>
+      </button>
+      <button
+        type="button"
+        class="kz-games-filter"
+        [class.kz-games-filter--active]="filter() === 'OGS'"
+        [attr.aria-pressed]="filter() === 'OGS'"
+        (click)="setFilter('OGS')"
+      >
+        OGS <span class="kz-games-filter-count">{{ counts().OGS }}</span>
+      </button>
+      <button
+        type="button"
+        class="kz-games-filter"
+        [class.kz-games-filter--active]="filter() === 'DGS'"
+        [attr.aria-pressed]="filter() === 'DGS'"
+        (click)="setFilter('DGS')"
+      >
+        DGS <span class="kz-games-filter-count">{{ counts().DGS }}</span>
+      </button>
+    </div>
 
-  @switch (screen()) {
-    @case ('loading') {
-      <div class="kz-games-state">
-        <p class="kz-games-state-title kz-games-state-title--hint">Loading your games…</p>
-        <p class="kz-games-state-body">This only takes a moment.</p>
-      </div>
-    }
-    @case ('error') {
-      <div class="kz-games-state">
-        <p class="kz-games-state-title">Couldn't load your games</p>
-        <p class="kz-games-state-body">Check your connection and try again.</p>
-        <button type="button" class="kz-games-retry" (click)="retry()">Try again</button>
-      </div>
-    }
-    @case ('ready') {
-      @if (isEmpty()) {
+    @switch (screen()) {
+      @case ('loading') {
         <div class="kz-games-state">
-          <p class="kz-games-state-title">No analyzed games yet</p>
-          <p class="kz-games-state-body">Send Kaizen a game from Telegram to get started.</p>
+          <p class="kz-games-state-title kz-games-state-title--hint">Loading your games…</p>
+          <p class="kz-games-state-body">This only takes a moment.</p>
         </div>
-      } @else {
-        @if (groups().today.length) {
-          <section class="kz-games-section">
-            <h2 class="kz-games-section-title">Today</h2>
-            @for (entry of groups().today; track entry.id; let first = $first) {
-              <kz-game-row [entry]="entry" [noDividerAbove]="first" />
-            }
-          </section>
-        }
-        @if (groups().earlier.length) {
-          <section class="kz-games-section">
-            <h2 class="kz-games-section-title">Earlier</h2>
-            @for (entry of groups().earlier; track entry.id; let first = $first) {
-              <kz-game-row [entry]="entry" [noDividerAbove]="first" />
-            }
-          </section>
+      }
+      @case ('error') {
+        <div class="kz-games-state">
+          <p class="kz-games-state-title">Couldn't load your games</p>
+          <p class="kz-games-state-body">Check your connection and try again.</p>
+          <button type="button" class="kz-games-retry" (click)="retry()">Try again</button>
+        </div>
+      }
+      @case ('ready') {
+        @if (isEmpty()) {
+          <div class="kz-games-state">
+            <p class="kz-games-state-title">No analyzed games yet</p>
+            <p class="kz-games-state-body">Send Kaizen a game from Telegram to get started.</p>
+          </div>
+        } @else {
+          @if (groups().today.length) {
+            <section class="kz-games-section">
+              <h2 class="kz-games-section-title">Today</h2>
+              @for (entry of groups().today; track entry.id; let first = $first) {
+                <kz-game-row [entry]="entry" [noDividerAbove]="first" />
+              }
+            </section>
+          }
+          @if (groups().earlier.length) {
+            <section class="kz-games-section">
+              <h2 class="kz-games-section-title">Earlier</h2>
+              @for (entry of groups().earlier; track entry.id; let first = $first) {
+                <kz-game-row [entry]="entry" [noDividerAbove]="first" />
+              }
+            </section>
+          }
         }
       }
     }
-  }
+  </div>
 
-  <div class="kz-games-spacer"></div>
+  <kz-seigaiha-fill />
 </div>
