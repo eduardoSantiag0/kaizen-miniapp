@@ -221,6 +221,11 @@ export class ExercisePageComponent {
     if (line) this.state.set(resetExercise(line));
   }
 
+  /** The 'error' screen's primary action: re-fetches the same game instead of forcing a trip back to GamesPage first, matching GamesPage's own retry() for a transient load failure. */
+  onRetryLoad(): void {
+    this.loadGame(this.gameId());
+  }
+
   onHintToggle(): void {
     this.state.update((s) => toggleHint(s));
   }

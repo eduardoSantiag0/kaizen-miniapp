@@ -14,6 +14,7 @@ import { ExerciseActionsComponent } from './exercise-actions.component';
       (playAgain)="log('playAgain')"
       (backToGames)="log('backToGames')"
       (doneSecondary)="log('doneSecondary')"
+      (retryLoad)="log('retryLoad')"
     />
   `,
 })
@@ -131,6 +132,16 @@ describe('ExerciseActionsComponent', () => {
 
     buttons()[0].click();
     expect(fixture.componentInstance.events).toEqual(['backToGames']);
+  });
+
+  it('renders Try again for {kind: "retryLoad"} and emits retryLoad (not tryAgain)', () => {
+    fixture.componentInstance.actions.set({ kind: 'retryLoad' });
+    fixture.detectChanges();
+
+    const button = buttons()[0];
+    expect(button.textContent?.trim()).toBe('Try again');
+    button.click();
+    expect(fixture.componentInstance.events).toEqual(['retryLoad']);
   });
 
   it('sits in normal flow, not pinned — reachable by scrolling, not sticky positioning', () => {

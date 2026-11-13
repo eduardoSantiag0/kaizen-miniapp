@@ -21,14 +21,16 @@ export class GameRowComponent {
   readonly noDividerAbove = input(false);
 
   /** A 'done' row with nothing flagged has no exercise to open — same as 'running'/'waiting', it's inert. */
-  readonly tappable = computed(() => this.entry().status === 'done' && this.entry().mistakeMoveNumber !== null);
+  readonly tappable = computed(() => this.entry().status === 'done' && this.entry().mistakePhases.length > 0);
 
   readonly statusText = computed(() => {
     const e = this.entry();
     switch (e.status) {
       case 'done':
         // Copy pending the user's sign-off, same as GamesPage's empty/loading/failed states.
-        return e.mistakeMoveNumber !== null ? `Biggest mistake · move ${e.mistakeMoveNumber}` : 'No concerns found';
+        if (e.mistakePhases.length === 0) return 'No concerns found';
+        if (e.mistakePhases.length === 1) return `Biggest mistake · move ${e.mistakeMoveNumber}`;
+        return `${e.mistakePhases.length} mistakes to study · ${e.mistakePhases.join(', ')}`;
       case 'running':
         return 'KataGo is analyzing…';
       case 'waiting':

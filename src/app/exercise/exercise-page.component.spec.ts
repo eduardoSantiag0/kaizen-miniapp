@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { ExercisePageComponent } from './exercise-page.component';
 import { GameHistoryService } from '../data/game-history.service';
 import { TelegramService } from '../core/telegram.service';
@@ -26,9 +26,15 @@ class StubGameHistoryService extends GameHistoryService {
   };
 
   readonly requestedGameIds: string[] = [];
+  /** When set, getGameHistory fails this many times before falling back to dto — used to test the error screen's retry action. */
+  failuresRemaining = 0;
 
   override getGameHistory(gameId: string) {
     this.requestedGameIds.push(gameId);
+    if (this.failuresRemaining > 0) {
+      this.failuresRemaining--;
+      return throwError(() => new Error('network error'));
+    }
     return of(this.dto);
   }
 
@@ -94,6 +100,21 @@ describe('ExercisePageComponent', () => {
     expect(fixture.nativeElement.querySelector('kz-kaizen-message')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('kz-goban-view')).toBeNull();
     expect(fixture.nativeElement.querySelector('kz-exercise-tools')).toBeNull();
+  });
+
+  it('shows a retryable error screen on a load failure, and "Try again" re-fetches the same game', () => {
+    stubHistory.failuresRemaining = 1;
+    createFixture().detectChanges();
+
+    expect(fixture.componentInstance.state().screen).toBe('error');
+    const button = fixture.nativeElement.querySelector('.kz-actions button') as HTMLButtonElement;
+    expect(button.textContent?.trim()).toBe('Try again');
+
+    button.click();
+    fixture.detectChanges();
+
+    expect(stubHistory.requestedGameIds.length).toBe(2);
+    expect(fixture.componentInstance.state().screen).toBe('ready');
   });
 
   it('tapping a legal point plays it immediately, with no preview/confirm step', () => {

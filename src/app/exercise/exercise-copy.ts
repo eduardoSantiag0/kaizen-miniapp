@@ -16,7 +16,8 @@ export type ActionsCopy =
   | { kind: 'tryAgain' }
   | { kind: 'correct' }
   | { kind: 'loading' }
-  | { kind: 'backToGames' };
+  | { kind: 'backToGames' }
+  | { kind: 'retryLoad' };
 
 const colorName = (sign: 1 | -1) => (sign === 1 ? 'Black' : 'White');
 
@@ -32,7 +33,7 @@ export function messageForScreen(screen: ExerciseState['screen']): KaizenMessage
     case 'error':
       return {
         title: 'Kaizen didn’t answer',
-        body: 'Go back and open the game again in a moment.',
+        body: 'Check your connection and try again.',
         tone: 'shu',
         emphasized: false,
       };
@@ -121,6 +122,7 @@ export function actionsForScreen(screen: ExerciseState['screen']): ActionsCopy |
     case 'loading':
       return { kind: 'loading' };
     case 'error':
+      return { kind: 'retryLoad' };
     case 'sgfError':
       return { kind: 'backToGames' };
     case 'ready':

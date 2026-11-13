@@ -2,7 +2,14 @@ import type { SgfNode } from '../sgf/sgf-node';
 import { BLACK, moveOf, WHITE } from '../sgf/sgf-node';
 import { SgfParserService } from '../sgf/sgf-parser.service';
 import { UnreadableExerciseError, buildExerciseLine } from '../exercise/exercise-line';
-import type { GameHistoryDto } from '../data/game-history.model';
+import type { GameHistoryDto, GamePhase } from '../data/game-history.model';
+
+/** Chronological order — same as exercise-source.ts's PHASE_ORDER, the order "Next exercise" walks through. */
+const CHRONOLOGICAL_PHASES: { phase: GamePhase; key: keyof GameHistoryDto }[] = [
+  { phase: 'opening', key: 'openingAnalysed' },
+  { phase: 'middlegame', key: 'middlegameAnalysed' },
+  { phase: 'endgame', key: 'endgameAnalysed' },
+];
 
 export type GameStatus = 'done' | 'running' | 'waiting';
 
@@ -25,8 +32,15 @@ export interface GameListEntry {
   /** Raw SGF DT[] value (often already "YYYY-MM-DD"); '' if absent. */
   date: string;
   status: GameStatus;
-  /** 1-based move number of the branch point — only meaningful for 'done'. */
+  /** 1-based move number of the branch point in mistakePhases[0] (chronologically first) — only meaningful for 'done'. */
   mistakeMoveNumber: number | null;
+  /**
+   * Every phase (chronological: opening, middlegame, endgame) that has its own
+   * exercise-able mistake — the same phases ExercisePage's "Next exercise"
+   * would walk through for this game. Empty when 'running'/'waiting', or when
+   * 'done' found nothing to flag (a clean game).
+   */
+  mistakePhases: GamePhase[];
   userSign: 1 | -1;
   /** Raw RE[] value, e.g. "B+R", "W+4.5" — '' if absent. */
   result: string;
@@ -37,14 +51,18 @@ export interface GameListEntry {
 /**
  * Builds one GamesPage row from a GameHistoryDto. Tries each phase SGF (same
  * priority as exercise-source.ts's loadExercise) and uses the first one that
- * parses, for metadata (board size, players, date, result) *and* separately
- * attempts to build a full exercise from it for 'done' status + the mistake's
- * move number — these are two different bars to clear from the same text.
+ * parses, for metadata (board size, players, date, result). *Separately*,
+ * in chronological order, it also tries building a full exercise from every
+ * phase (not just the first parseable one) for 'done' status + mistakePhases
+ * — the same phases ExercisePage's "Next exercise" walks through for this
+ * game — so the row can say "N mistakes to study" instead of only ever
+ * reporting the first one it finds.
  *
  * Status is a frontend-only derivation from the nullable per-phase SGF
  * fields already in the real contract, not a backend field:
- * 'done' = analysis is complete — either a branch point was found
- * (mistakeMoveNumber is set) or none was (a clean game, nothing to flag).
+ * 'done' = analysis is complete — either a branch point was found in at
+ * least one phase (mistakePhases is non-empty) or none was (a clean game,
+ * nothing to flag).
  * 'running' = at least one phase SGF exists, but none has a branch point yet.
  *
  * All three phases null is 'done' (clean), NOT 'waiting': the backend only
@@ -77,13 +95,28 @@ export function deriveGameListEntry(dto: GameHistoryDto, sgfParser: SgfParserSer
 
   let status: GameStatus = allPhasesAbsent ? 'done' : parsedPhases.length ? 'running' : 'waiting';
   let mistakeMoveNumber: number | null = null;
+  const mistakePhases: GamePhase[] = [];
 
-  for (const phaseRoot of parsedPhases) {
+  // Separate, chronologically-ordered pass (independent of the metadata pass
+  // above, which only keeps the first parseable phase) — collects every
+  // phase with its own mistake instead of stopping at the first one, so the
+  // row can show "N mistakes to study" instead of hiding the rest.
+  for (const { phase, key } of CHRONOLOGICAL_PHASES) {
+    const sgf = dto[key];
+    if (sgf === null) continue;
+
+    let phaseRoot: SgfNode;
+    try {
+      phaseRoot = sgfParser.parse(sgf).root;
+    } catch {
+      continue; // Unreadable phase SGF — skip, same as the metadata pass above.
+    }
+
     try {
       buildExerciseLine(phaseRoot);
       status = 'done';
-      mistakeMoveNumber = branchPointDepth(phaseRoot);
-      break;
+      mistakePhases.push(phase);
+      if (mistakeMoveNumber === null) mistakeMoveNumber = branchPointDepth(phaseRoot);
     } catch (error) {
       if (!(error instanceof UnreadableExerciseError)) throw error;
     }
@@ -114,6 +147,7 @@ export function deriveGameListEntry(dto: GameHistoryDto, sgfParser: SgfParserSer
     date: root?.data['DT']?.[0] ?? '',
     status,
     mistakeMoveNumber,
+    mistakePhases,
     userSign,
     result,
     won,

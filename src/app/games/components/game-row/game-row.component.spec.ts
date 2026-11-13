@@ -17,6 +17,7 @@ describe('GameRowComponent', () => {
       date: '2026-11-09',
       status: 'done',
       mistakeMoveNumber: 75,
+      mistakePhases: ['middlegame'],
       userSign: 1,
       result: 'B+R',
       won: true,
@@ -56,12 +57,21 @@ describe('GameRowComponent', () => {
   });
 
   it('a "done" row with nothing flagged (mistakeMoveNumber null) shows clean-game copy and is not tappable', () => {
-    setEntry(entry({ status: 'done', mistakeMoveNumber: null }));
+    setEntry(entry({ status: 'done', mistakeMoveNumber: null, mistakePhases: [] }));
 
     expect(fixture.nativeElement.textContent).toContain('No concerns found');
     expect(fixture.nativeElement.querySelector('a')).toBeNull();
     expect(fixture.nativeElement.querySelector('div.kz-game-row')).toBeTruthy();
     expect(fixture.nativeElement.querySelector('.kz-game-row-right--no-chevron')).toBeTruthy();
+  });
+
+  it('shows "N mistakes to study" with the phase list when more than one phase has a mistake', () => {
+    setEntry(entry({ status: 'done', mistakeMoveNumber: 12, mistakePhases: ['opening', 'middlegame', 'endgame'] }));
+
+    expect(fixture.nativeElement.textContent).toContain('3 mistakes to study · opening, middlegame, endgame');
+
+    const link = fixture.nativeElement.querySelector('a.kz-game-row') as HTMLAnchorElement;
+    expect(link).toBeTruthy(); // still a single tap into the game's own exercise collection, same link as before
   });
 
   it('renders a non-"done" row as a plain, non-tappable div — no nested link', () => {

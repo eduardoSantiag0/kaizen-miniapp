@@ -18,6 +18,8 @@ export class ExerciseActionsComponent {
   readonly backToGames = output<void>();
   /** The 'done' phase's secondary button specifically (separate from the plain error-screen backToGames above). */
   readonly doneSecondary = output<void>();
+  /** Re-fetches the game on the 'error' screen (transient load failure) — distinct from backToGames, which 'sgfError' (unreadable record) still uses since retrying a corrupt SGF can't help. */
+  readonly retryLoad = output<void>();
 
   /**
    * Mobile-UX's thumb-reach fix, take two (the original used position: sticky,

@@ -31,10 +31,19 @@ describe('deriveGameListEntry', () => {
 
     expect(entry.status).toBe('done');
     expect(entry.mistakeMoveNumber).toBe(3); // qd, cp, nq precede the branch
+    expect(entry.mistakePhases).toEqual(['middlegame']);
     expect(entry.boardSize).toBe(19);
     expect(entry.server).toBe('OGS');
     expect(entry.date).toBe('2026-11-08');
     expect(entry.result).toBe('B+R');
+  });
+
+  it('collects every phase with its own mistake, in chronological order, instead of stopping at the first one', () => {
+    const entry = deriveGameListEntry(dto({ middlegameAnalysed: exerciseSgf, endgameAnalysed: exerciseSgf }), sgfParser);
+
+    expect(entry.status).toBe('done');
+    expect(entry.mistakePhases).toEqual(['middlegame', 'endgame']);
+    expect(entry.mistakeMoveNumber).toBe(3); // pinned to the first phase found, chronologically
   });
 
   it('attributes name/rank to the opponent (not the user) by PL[] at the root', () => {
@@ -52,6 +61,7 @@ describe('deriveGameListEntry', () => {
 
     expect(entry.status).toBe('running');
     expect(entry.mistakeMoveNumber).toBeNull();
+    expect(entry.mistakePhases).toEqual([]);
   });
 
   it('status "done" (clean): all three phase fields are null means analysis finished and found nothing, not "not started" — the backend only ever writes a row once analysis is complete, falls back to the DTO\'s own player fields', () => {
@@ -62,6 +72,7 @@ describe('deriveGameListEntry', () => {
 
     expect(entry.status).toBe('done');
     expect(entry.mistakeMoveNumber).toBeNull();
+    expect(entry.mistakePhases).toEqual([]);
     expect(entry.moves).toBe(0);
     expect(entry.userSign).toBe(1); // no PL[] available — defaults to black
     expect(entry.opponentName).toBe('hoshi_no_go'); // userSign black -> opponent is white

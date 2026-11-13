@@ -23,5 +23,8 @@
     @case ('backToGames') {
       <button type="button" class="kz-btn kz-btn--primary" (click)="backToGames.emit()">Back to games</button>
     }
+    @case ('retryLoad') {
+      <button type="button" class="kz-btn kz-btn--primary" (click)="retryLoad.emit()">Try again</button>
+    }
   }
 </div>
