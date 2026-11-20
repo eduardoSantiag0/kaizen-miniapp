@@ -1,0 +1,37 @@
+import { HttpClient } from '@angular/common/http';
+import { Injectable, inject } from '@angular/core';
+import { Observable, of, switchMap, throwError } from 'rxjs';
+import { environment } from '../../environments/environment';
+import { TelegramService } from '../core/telegram.service';
+import { GameHistoryService } from './game-history.service';
+import type { GameHistoryDto } from './game-history.model';
+
+/**
+ * Real HTTP-backed GameHistoryService, per
+ * docs/backend-contract/history-endpoint-contract.md: GET /history returns
+ * every one of the chat's games/jobs in one array — there is no per-game
+ * lookup endpoint.
+ */
+@Injectable()
+export class HttpGameHistoryService extends GameHistoryService {
+  private readonly http = inject(HttpClient);
+  private readonly telegram = inject(TelegramService);
+
+  private static readonly HISTORY_PATH = '/kaizan/api/v1/katago/history';
+
+  listGames(): Observable<GameHistoryDto[]> {
+    return this.http.get<GameHistoryDto[]>(
+      `${environment.apiBaseUrl}${HttpGameHistoryService.HISTORY_PATH}`,
+      { headers: { Authorization: `tma ${this.telegram.initData}` } },
+    );
+  }
+
+  getGameHistory(gameId: string): Observable<GameHistoryDto> {
+    return this.listGames().pipe(
+      switchMap((games) => {
+        const found = games.find((game) => game.id === gameId);
+        return found ? of(found) : throwError(() => new Error(`Game ${gameId} not found`));
+      }),
+    );
+  }
+}

@@ -1,6 +1,15 @@
-# GET /history endpoint — prototype contract (DRAFT, NOT YET FUNCTIONAL)
+# GET /history endpoint — prototype contract
 
-Status: documents the user's in-progress prototype on the backend repo's
+**DRAFT marker dropped 2026-11-13.** Issue #1 (auth validation) has since
+been implemented in `kaizan-companion` (`TelegramInitDataService` now does
+the real HMAC check, not a `return null` stub), and `kaizen-miniapp` now has
+a real `HttpGameHistoryService` wired against this route — see
+`game-history-item-contract-drift.md`'s resolved note for what changed on the
+frontend side. The rest of this document otherwise still describes the route
+as landed; re-verify against the current backend source before relying on
+details below if more time has passed.
+
+Status (original): documents the user's in-progress prototype on the backend repo's
 `feature/miniapp-api` branch. **This endpoint still does not work
 end-to-end** — auth validation (issue #1 below) is an intentional stub that
 the user is implementing themselves; everything else found during review has

@@ -1,6 +1,17 @@
 # Confirmed gap: frontend's `GameHistoryDto` no longer matches the backend's response shape
 
-Status: **confirmed integration gap, documentation only.** No frontend or
+**RESOLVED 2026-11-13.** `status?: 'DONE' | 'RUNNING' | 'WAITING'` was added
+to `game-history.model.ts`, `HttpGameHistoryService` now calls the real
+`GET /history` endpoint with the `Authorization: tma <initData>` header
+(`TelegramInitDataService` is no longer a stub — it was implemented
+separately since this document's last pass), and `deriveGameListEntry` now
+reads `dto.status` instead of assuming an all-null row is always a clean
+finished game — see that function's updated doc comment for why the old
+assumption broke. The rest of this document is kept for history; its
+"Severity"/"What would need to change" sections describe the gap as it stood
+before this fix, not the current state.
+
+Status (original): **confirmed integration gap, documentation only.** No frontend or
 backend code was changed to produce this document — read-only comparison of
 what's on disk in both repos right now. Nothing is urgent today because
 nothing calls the real endpoint yet (see "Why this isn't breaking anything

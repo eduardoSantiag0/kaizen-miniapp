@@ -4,8 +4,10 @@ import { SgfParserService } from '../sgf/sgf-parser.service';
 import { UnreadableExerciseError, buildExerciseLine } from '../exercise/exercise-line';
 import type { GameHistoryDto, GamePhase } from '../data/game-history.model';
 
+type PhaseKey = 'openingAnalysed' | 'middlegameAnalysed' | 'endgameAnalysed';
+
 /** Chronological order — same as exercise-source.ts's PHASE_ORDER, the order "Next exercise" walks through. */
-const CHRONOLOGICAL_PHASES: { phase: GamePhase; key: keyof GameHistoryDto }[] = [
+const CHRONOLOGICAL_PHASES: { phase: GamePhase; key: PhaseKey }[] = [
   { phase: 'opening', key: 'openingAnalysed' },
   { phase: 'middlegame', key: 'middlegameAnalysed' },
   { phase: 'endgame', key: 'endgameAnalysed' },
@@ -65,17 +67,15 @@ export interface GameListEntry {
  * nothing to flag).
  * 'running' = at least one phase SGF exists, but none has a branch point yet.
  *
- * All three phases null is 'done' (clean), NOT 'waiting': the backend only
- * ever creates a GameAnalysisEntity row from one unconditional save() at the
- * END of a completed analysis callback (confirmed against
- * AnalysisAggregator.java/KatagoAssembler.java) — a not-yet-started or
- * in-progress job produces no row at all, so GET /history can never actually
- * return a row that's still pending. An all-null row can only mean KataGo
- * found nothing worth flagging in any phase. 'waiting' is kept as a type for
- * a genuinely-corrupt edge case below (phases present but none parse at all,
- * as opposed to genuinely absent) — whether 'running'/'waiting' make sense
- * at all given this is still being decided separately; this fix only
- * addresses the clear, unambiguous all-null misclassification.
+ * All three phases null is 'done' (clean) ONLY when the backend's own
+ * `status` field says so (or is absent, as on the mock fixtures, which
+ * predate that field). GET /history now also returns rows for jobs still
+ * `ANALYSIS_REQUESTED`/`SUBMITTING`/`IN_QUEUE` (status `WAITING`/`RUNNING`),
+ * which also have every SGF field null — so an all-null row is no longer
+ * unambiguous on its own; `dto.status` disambiguates it from a real clean
+ * game. 'waiting' is also still reachable for a genuinely-corrupt edge case
+ * below (phases present but none parse at all, as opposed to genuinely
+ * absent).
  */
 export function deriveGameListEntry(dto: GameHistoryDto, sgfParser: SgfParserService): GameListEntry {
   const phaseTexts = [dto.middlegameAnalysed, dto.openingAnalysed, dto.endgameAnalysed];
@@ -93,7 +93,16 @@ export function deriveGameListEntry(dto: GameHistoryDto, sgfParser: SgfParserSer
 
   const root: SgfNode | null = parsedPhases[0] ?? null;
 
-  let status: GameStatus = allPhasesAbsent ? 'done' : parsedPhases.length ? 'running' : 'waiting';
+  let status: GameStatus;
+  if (dto.status === 'RUNNING') {
+    status = 'running';
+  } else if (dto.status === 'WAITING') {
+    status = 'waiting';
+  } else {
+    // dto.status is 'DONE' or absent (mock fixtures) — derive from the SGF
+    // content itself, as before.
+    status = allPhasesAbsent ? 'done' : parsedPhases.length ? 'running' : 'waiting';
+  }
   let mistakeMoveNumber: number | null = null;
   const mistakePhases: GamePhase[] = [];
 

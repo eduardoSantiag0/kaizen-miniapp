@@ -6,6 +6,14 @@
 export interface GameHistoryDto {
   id: string;
   correlationId: string;
+  /**
+   * Backend's GameHistoryItemDto field (see docs/backend-contract). Absent on
+   * the mock fixtures' synthetic rows, which predate this field — treat a
+   * missing status the same as 'DONE' (see deriveGameListEntry).
+   * 'WAITING'/'RUNNING' rows have every field below as null — that's not a
+   * clean finished game, it's a job still in RunPod's queue.
+   */
+  status?: 'DONE' | 'RUNNING' | 'WAITING';
   openingAnalysed: string | null;
   middlegameAnalysed: string | null;
   endgameAnalysed: string | null;

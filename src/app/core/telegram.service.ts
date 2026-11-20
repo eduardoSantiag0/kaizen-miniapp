@@ -44,6 +44,11 @@ export class TelegramService {
     return this.insideTelegram;
   }
 
+  /** Raw initData string the backend's Authorization: tma <initData> header needs. '' outside real Telegram. */
+  get initData(): string {
+    return this.webApp?.initData ?? '';
+  }
+
   constructor() {
     this.webApp?.ready();
     // Mobile Telegram opens the Mini App minimized inside its BottomSheet by
