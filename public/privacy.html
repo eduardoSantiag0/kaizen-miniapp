@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Política de Privacidade — Kaizen Companion</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 680px; margin: 2rem auto; padding: 0 1rem; line-height: 1.6; color: #1c1a17; }
+  h1 { font-size: 1.5rem; }
+  h2 { font-size: 1.1rem; margin-top: 2rem; }
+  a { color: #0366d6; }
+</style>
+</head>
+<body>
+  <h1>Política de Privacidade — Kaizen Companion</h1>
+  <p><em>Última atualização: novembro de 2026</em></p>
+
+  <p>O Kaizen Companion é um bot do Telegram que analisa partidas de Go (Baduk) usando o motor KataGo, e um Mini App que permite treinar os erros identificados nessas partidas.</p>
+
+  <h2>Quais dados coletamos</h2>
+  <ul>
+    <li><strong>Identificação do Telegram:</strong> seu ID de chat, nome e nome de usuário do Telegram, usados para te identificar e enviar as análises.</li>
+    <li><strong>Contas de servidores de Go:</strong> se você vincular uma conta do OGS (Online-Go.com) ou do Dragon Go Server, armazenamos o identificador público dessa conta, usado para buscar suas partidas.</li>
+    <li><strong>Partidas analisadas:</strong> o conteúdo (SGF) das partidas que você envia pra análise, e o resultado gerado pelo KataGo.</li>
+    <li><strong>Email (opcional):</strong> se você vincular um email via <code>/add_email</code>, usamos ele só pra te mandar as análises também por email.</li>
+    <li><strong>Google Drive (opcional):</strong> se você conectar sua conta do Google Drive via <code>/add_google_drive</code>, armazenamos um token de acesso OAuth, criptografado, usado apenas para salvar os arquivos de análise na sua própria conta do Drive. Não acessamos nenhum outro arquivo seu no Drive além dos que o próprio bot cria.</li>
+  </ul>
+
+  <h2>Como usamos esses dados</h2>
+  <p>Usamos esses dados exclusivamente para operar o serviço: baixar suas partidas, processar a análise via GPU (RunPod), e entregar o resultado de volta pra você pelo Telegram, email ou Google Drive, conforme você configurar.</p>
+
+  <h2>Com quem compartilhamos</h2>
+  <ul>
+    <li><strong>Telegram:</strong> para enviar e receber mensagens.</li>
+    <li><strong>OGS / Dragon Go Server:</strong> para buscar as partidas que você pede pra analisar (são serviços públicos de Go).</li>
+    <li><strong>RunPod:</strong> provedor de infraestrutura de GPU que executa o motor KataGo sobre as partidas que você envia.</li>
+    <li><strong>Google Drive:</strong> apenas se você conectar sua conta, para salvar os arquivos de análise lá.</li>
+  </ul>
+  <p>Não vendemos nem compartilhamos seus dados com terceiros para publicidade ou qualquer outra finalidade.</p>
+
+  <h2>Retenção e exclusão</h2>
+  <p>Você pode desvincular sua conta do OGS/Dragon, seu email, ou sua conta do Google Drive a qualquer momento com o comando <code>/unlink</code>. Para solicitar a exclusão completa dos seus dados, entre em contato pelo email abaixo.</p>
+
+  <h2>Contato</h2>
+  <p>Dúvidas sobre esta política? Escreva para: <a href="https://github.com/eduardoSantiag0/kaizan-companion">github.com/eduardoSantiag0/kaizan-companion</a> (abra uma issue) ou pelo email de suporte configurado no bot.</p>
+</body>
+</html>
