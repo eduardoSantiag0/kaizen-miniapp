@@ -57,6 +57,7 @@ describe('SafeAreaService', () => {
         setBackgroundColor: jasmine.createSpy(),
         disableVerticalSwipes: jasmine.createSpy(),
         enableVerticalSwipes: jasmine.createSpy(),
+        showPopup: jasmine.createSpy(),
         ready: jasmine.createSpy(),
         expand: jasmine.createSpy(),
       },

@@ -123,8 +123,9 @@
   font: 400 14px/20px 'IBM Plex Sans', sans-serif;
   color: var(--kz-ink);
 
+  /* Celebrate state uses a wider avatar/title gap (20px, not 12px) — match that
+     indent so the body still reads as the title's own line, not a separate block. */
   &--celebrate {
-    margin-left: 0;
-    text-align: center;
+    margin-left: 56px;
   }
 }

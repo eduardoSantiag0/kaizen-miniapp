@@ -34,4 +34,16 @@ export class HttpGameHistoryService extends GameHistoryService {
       }),
     );
   }
+
+  /**
+   * DELETE /history/{id}: cancels a running/queued job the same as the
+   * Telegram /resign command, or deletes an already-analysed game — the
+   * backend decides which, based on the id (docs/backend-contract/resign-endpoint-proposal.md).
+   */
+  resignGame(gameId: string): Observable<void> {
+    return this.http.delete<void>(
+      `${environment.apiBaseUrl}${HttpGameHistoryService.HISTORY_PATH}/${gameId}`,
+      { headers: { Authorization: `tma ${this.telegram.initData}` } },
+    );
+  }
 }

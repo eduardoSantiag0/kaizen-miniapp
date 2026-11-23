@@ -41,6 +41,10 @@ class StubGameHistoryService extends GameHistoryService {
   override listGames() {
     return of([this.dto]);
   }
+
+  override resignGame() {
+    return of(undefined);
+  }
 }
 
 describe('ExercisePageComponent', () => {

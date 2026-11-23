@@ -1,30 +1,45 @@
-import { Component, computed, input } from '@angular/core';
-import { NgTemplateOutlet } from '@angular/common';
+import { Component, computed, inject, input, output, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { GameHistoryService } from '../../../data/game-history.service';
 import type { GameListEntry } from '../../game-list-entry';
 import { formatRelativeDate } from '../../game-list-format';
+import { GameActionComponent } from '../game-action/game-action.component';
 
 /**
- * One row of GamesPage's list. A 'done' row is a real link to its exercise;
- * 'running'/'waiting' rows are inert (HANDOFF.md section 4) — no nested
- * interactive elements inside either, so the whole row is one <a> or one <div>.
+ * One row of GamesPage's list. A 'done' row with a mistake to study is a real
+ * link to its exercise, via an <a> stretched over the whole row (HANDOFF-update.md
+ * section 1) — not wrapping the row, since the row also holds the Cancel/Delete
+ * action button and a button can't sit inside a link. 'running'/'waiting' rows,
+ * and 'done' rows with nothing flagged, get no link at all.
  */
 @Component({
   selector: 'kz-game-row',
-  imports: [RouterLink, NgTemplateOutlet],
+  imports: [RouterLink, GameActionComponent],
   templateUrl: './game-row.component.html',
   styleUrl: './game-row.component.scss',
 })
 export class GameRowComponent {
+  private readonly gameHistory = inject(GameHistoryService);
+
   readonly entry = input.required<GameListEntry>();
   /** True for the first row of its section (Today/Earlier) — that row gets no divider above it, the section boundary already supplies one. */
   readonly noDividerAbove = input(false);
 
-  /** A 'done' row with nothing flagged has no exercise to open — same as 'running'/'waiting', it's inert. */
-  readonly tappable = computed(() => this.entry().status === 'done' && this.entry().mistakePhases.length > 0);
+  /** Emits this row's id once the backend has confirmed the cancel/delete — GamesPage drops it from the list. */
+  readonly removed = output<string>();
+
+  /** True while a confirmed cancel/delete request is in flight. */
+  readonly pending = signal(false);
+
+  /** A 'done' row with nothing flagged has no exercise to open — same as 'running'/'waiting', it's inert. Also inert while pending (HANDOFF-update.md: "the row stops being a link"). */
+  readonly tappable = computed(
+    () => !this.pending() && this.entry().status === 'done' && this.entry().mistakePhases.length > 0,
+  );
 
   readonly statusText = computed(() => {
     const e = this.entry();
+    if (this.pending()) return e.status === 'done' ? 'Deleting…' : 'Cancelling…';
+
     switch (e.status) {
       case 'done':
         // Copy pending the user's sign-off, same as GamesPage's empty/loading/failed states.
@@ -37,6 +52,17 @@ export class GameRowComponent {
         return 'Queued for analysis';
     }
   });
+
+  /** GameAction's (confirmed) handler: the player tapped the popup's destructive button. */
+  onActionConfirmed(): void {
+    const id = this.entry().id;
+    this.pending.set(true);
+    this.gameHistory.resignGame(id).subscribe({
+      next: () => this.removed.emit(id),
+      // "If the request fails, put the row back as it was" (HANDOFF-update.md section 1).
+      error: () => this.pending.set(false),
+    });
+  }
 
   readonly metaText = computed(() => {
     const e = this.entry();

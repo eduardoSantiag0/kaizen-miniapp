@@ -1,0 +1,28 @@
+:host {
+  display: block;
+}
+
+/*
+ * Visually just the 18px status-text line in the layout (matches the name/meta/
+ * status rows on the other side of the row), but with a real 44px tap target —
+ * the negative margin expands the hit area without pushing the row taller.
+ * margin-right -8px + padding-right 8px cancel out, so the text's own right
+ * edge still lands exactly on the column's right edge.
+ */
+.kz-game-action {
+  display: inline-flex;
+  align-items: center;
+  height: 44px;
+  margin: -13px -8px -13px 0;
+  padding: 0 8px;
+  background: none;
+  border: none;
+  white-space: nowrap;
+  font: 500 13px/18px 'IBM Plex Sans', sans-serif;
+  color: var(--kz-hint);
+}
+
+.kz-game-action-icon {
+  flex: 0 0 auto;
+  margin-right: 5px;
+}

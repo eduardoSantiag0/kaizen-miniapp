@@ -1,5 +1,5 @@
 import { Injectable, signal } from '@angular/core';
-import type { TelegramSafeAreaInset, TelegramWebApp } from './telegram-webapp';
+import type { TelegramPopupParams, TelegramSafeAreaInset, TelegramWebApp } from './telegram-webapp';
 
 const ZERO_INSET: TelegramSafeAreaInset = { top: 0, bottom: 0, left: 0, right: 0 };
 
@@ -98,5 +98,10 @@ export class TelegramService {
 
   notificationHaptic(type: 'error' | 'success' | 'warning'): void {
     this.webApp?.HapticFeedback.notificationOccurred(type);
+  }
+
+  /** No-ops (callback never fires) when the script hasn't loaded at all — same degrade-to-no-op convention as every other member here. */
+  showPopup(params: TelegramPopupParams, callback: (buttonId: string | undefined) => void): void {
+    this.webApp?.showPopup(params, callback);
   }
 }

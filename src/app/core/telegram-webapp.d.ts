@@ -20,6 +20,19 @@ export interface TelegramBackButton {
   offClick(callback: () => void): void;
 }
 
+export interface TelegramPopupButton {
+  id: string;
+  /** 'cancel' renders Telegram's own localized "Cancel" text, ignoring `text` — use 'default' for a custom-worded dismiss button. */
+  type: 'default' | 'destructive' | 'cancel' | 'ok' | 'close';
+  text: string;
+}
+
+export interface TelegramPopupParams {
+  title?: string;
+  message: string;
+  buttons: TelegramPopupButton[];
+}
+
 export interface TelegramWebApp {
   /**
    * Telegram's official script always creates window.Telegram.WebApp, even
@@ -39,6 +52,8 @@ export interface TelegramWebApp {
   BackButton: TelegramBackButton;
   onEvent(eventType: string, callback: () => void): void;
   offEvent(eventType: string, callback: () => void): void;
+  /** `buttonId` is the tapped button's `id`, or undefined if the popup was dismissed without a choice. */
+  showPopup(params: TelegramPopupParams, callback: (buttonId: string | undefined) => void): void;
   setHeaderColor(color: string): void;
   setBackgroundColor(color: string): void;
   disableVerticalSwipes(): void;

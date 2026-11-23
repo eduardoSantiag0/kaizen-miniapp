@@ -30,6 +30,7 @@ function mockWebApp(overrides: Partial<TelegramWebApp> = {}): TelegramWebApp {
     setBackgroundColor: jasmine.createSpy(),
     disableVerticalSwipes: jasmine.createSpy(),
     enableVerticalSwipes: jasmine.createSpy(),
+    showPopup: jasmine.createSpy(),
     ready: jasmine.createSpy(),
     expand: jasmine.createSpy(),
     ...overrides,
@@ -109,6 +110,17 @@ describe('TelegramService', () => {
 
     service.showBackButton(() => {});
     expect(window.Telegram!.WebApp.BackButton.show).toHaveBeenCalled();
+
+    const onChoice = jasmine.createSpy();
+    const popupParams = { title: 'Delete this game?', message: 'Gone for good.', buttons: [{ id: 'confirm', type: 'destructive' as const, text: 'Delete game' }] };
+    service.showPopup(popupParams, onChoice);
+    expect(window.Telegram!.WebApp.showPopup).toHaveBeenCalledWith(popupParams, onChoice);
+  });
+
+  it('showPopup is a harmless no-op outside real Telegram', () => {
+    delete window.Telegram;
+    const service = new TelegramService();
+    expect(() => service.showPopup({ message: 'x', buttons: [] }, () => {})).not.toThrow();
   });
 
   it('viewportStableHeight defaults to null outside real Telegram (CSS dvh is the fallback there)', () => {

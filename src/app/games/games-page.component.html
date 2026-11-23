@@ -64,7 +64,7 @@
             <section class="kz-games-section">
               <h2 class="kz-games-section-title">Today</h2>
               @for (entry of groups().today; track entry.id; let first = $first) {
-                <kz-game-row [entry]="entry" [noDividerAbove]="first" />
+                <kz-game-row [entry]="entry" [noDividerAbove]="first" (removed)="onRowRemoved($event)" />
               }
             </section>
           }
@@ -72,7 +72,7 @@
             <section class="kz-games-section">
               <h2 class="kz-games-section-title">Earlier</h2>
               @for (entry of groups().earlier; track entry.id; let first = $first) {
-                <kz-game-row [entry]="entry" [noDividerAbove]="first" />
+                <kz-game-row [entry]="entry" [noDividerAbove]="first" (removed)="onRowRemoved($event)" />
               }
             </section>
           }

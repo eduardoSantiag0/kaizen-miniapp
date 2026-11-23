@@ -3,6 +3,7 @@ import { provideRouter } from '@angular/router';
 import { of, Subject } from 'rxjs';
 import { GamesPageComponent } from './games-page.component';
 import { GameHistoryService } from '../data/game-history.service';
+import { TelegramService } from '../core/telegram.service';
 import type { GameHistoryDto } from '../data/game-history.model';
 
 // Computed relative to the real current date, not hardcoded — isToday() (used
@@ -42,6 +43,10 @@ class StubGameHistoryService extends GameHistoryService {
 
   override listGames() {
     return this.games$.asObservable();
+  }
+
+  override resignGame() {
+    return of(undefined);
   }
 }
 
@@ -139,5 +144,23 @@ describe('GamesPageComponent', () => {
     stub.games$.next([makeDto({ id: 'recovered', middlegameAnalysed: DONE_SGF })]);
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelectorAll('kz-game-row').length).toBe(1);
+  });
+
+  it('drops a row and updates counts once its delete is confirmed (HANDOFF-update.md section 1)', () => {
+    create();
+    stub.games$.next([
+      makeDto({ id: 'g-ogs', middlegameAnalysed: DONE_SGF }),
+      makeDto({ id: 'g-dgs', middlegameAnalysed: DONE_SGF_DGS_YESTERDAY }),
+    ]);
+    fixture.detectChanges();
+    expect(fixture.componentInstance.counts()).toEqual({ all: 2, OGS: 1, DGS: 1 });
+
+    const telegram = TestBed.inject(TelegramService);
+    spyOn(telegram, 'showPopup').and.callFake((_params, callback) => callback('confirm'));
+    (fixture.nativeElement.querySelector('.kz-game-action') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelectorAll('kz-game-row').length).toBe(1);
+    expect(fixture.componentInstance.counts()).toEqual({ all: 1, OGS: 0, DGS: 1 });
   });
 });

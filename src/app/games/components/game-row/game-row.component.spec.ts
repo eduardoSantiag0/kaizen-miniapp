@@ -1,10 +1,43 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+import { of, Subject, throwError } from 'rxjs';
 import { GameRowComponent } from './game-row.component';
+import { GameHistoryService } from '../../../data/game-history.service';
+import { TelegramService } from '../../../core/telegram.service';
+import type { GameHistoryDto } from '../../../data/game-history.model';
 import type { GameListEntry } from '../../game-list-entry';
+
+class StubGameHistoryService extends GameHistoryService {
+  resignCalls: string[] = [];
+  resignResult = new Subject<void>();
+
+  override getGameHistory() {
+    return of<GameHistoryDto>({
+      id: 'g1',
+      correlationId: 'c1',
+      openingAnalysed: null,
+      middlegameAnalysed: null,
+      endgameAnalysed: null,
+      blackPlayer: null,
+      whitePlayer: null,
+      gameRank: null,
+    });
+  }
+
+  override listGames() {
+    return of<GameHistoryDto[]>([]);
+  }
+
+  override resignGame(gameId: string) {
+    this.resignCalls.push(gameId);
+    return this.resignResult.asObservable();
+  }
+}
 
 describe('GameRowComponent', () => {
   let fixture: ComponentFixture<GameRowComponent>;
+  let gameHistory: StubGameHistoryService;
+  let telegram: TelegramService;
 
   function entry(overrides: Partial<GameListEntry> = {}): GameListEntry {
     return {
@@ -32,17 +65,38 @@ describe('GameRowComponent', () => {
     fixture.detectChanges();
   }
 
+  function link(): HTMLAnchorElement | null {
+    return fixture.nativeElement.querySelector('.kz-game-row-link');
+  }
+
+  function actionButton(): HTMLButtonElement {
+    return fixture.nativeElement.querySelector('.kz-game-action') as HTMLButtonElement;
+  }
+
   beforeEach(() => {
-    TestBed.configureTestingModule({ providers: [provideRouter([])] });
+    delete window.Telegram;
+    TestBed.configureTestingModule({
+      providers: [provideRouter([]), { provide: GameHistoryService, useClass: StubGameHistoryService }],
+    });
+    gameHistory = TestBed.inject(GameHistoryService) as unknown as StubGameHistoryService;
+    telegram = TestBed.inject(TelegramService);
   });
 
-  it('renders a "done" row as a real link to its exercise, with the full accessible name', () => {
+  /** Drives GameAction's popup through to its destructive button without a real Telegram client. */
+  function confirmAction(): void {
+    spyOn(telegram, 'showPopup').and.callFake((_params, callback) => callback('confirm'));
+    actionButton().click();
+  }
+
+  it('renders a "done" row with a mistake as a stretched link to its exercise, with the full accessible name', () => {
     setEntry(entry());
 
-    const link = fixture.nativeElement.querySelector('a.kz-game-row') as HTMLAnchorElement;
-    expect(link).toBeTruthy();
-    expect(link.getAttribute('aria-label')).toBe('kitsune77, won B+R, 19 by 19, Biggest mistake · move 75');
-    expect(link.getAttribute('href')).toContain('/game/game-1');
+    const row = fixture.nativeElement.querySelector('.kz-game-row') as HTMLElement;
+    expect(row).toBeTruthy();
+    const a = link();
+    expect(a).toBeTruthy();
+    expect(a!.getAttribute('aria-label')).toBe('kitsune77, won B+R, 19 by 19, Biggest mistake · move 75');
+    expect(a!.getAttribute('href')).toContain('/game/game-1');
   });
 
   it('renders the status line text per status', () => {
@@ -56,29 +110,27 @@ describe('GameRowComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('Queued for analysis');
   });
 
-  it('a "done" row with nothing flagged (mistakeMoveNumber null) shows clean-game copy and is not tappable', () => {
+  it('a "done" row with nothing flagged (mistakeMoveNumber null) shows clean-game copy, is not a link, but still offers Delete', () => {
     setEntry(entry({ status: 'done', mistakeMoveNumber: null, mistakePhases: [] }));
 
     expect(fixture.nativeElement.textContent).toContain('No concerns found');
-    expect(fixture.nativeElement.querySelector('a')).toBeNull();
-    expect(fixture.nativeElement.querySelector('div.kz-game-row')).toBeTruthy();
+    expect(link()).toBeNull();
     expect(fixture.nativeElement.querySelector('.kz-game-row-right--no-chevron')).toBeTruthy();
+    expect(actionButton().textContent?.trim()).toBe('Delete');
   });
 
   it('shows "N mistakes to study" with the phase list when more than one phase has a mistake', () => {
     setEntry(entry({ status: 'done', mistakeMoveNumber: 12, mistakePhases: ['opening', 'middlegame', 'endgame'] }));
 
     expect(fixture.nativeElement.textContent).toContain('3 mistakes to study · opening, middlegame, endgame');
-
-    const link = fixture.nativeElement.querySelector('a.kz-game-row') as HTMLAnchorElement;
-    expect(link).toBeTruthy(); // still a single tap into the game's own exercise collection, same link as before
+    expect(link()).toBeTruthy(); // still a single tap into the game's own exercise collection, same link as before
   });
 
-  it('renders a non-"done" row as a plain, non-tappable div — no nested link', () => {
+  it('renders a non-"done" row with no link, but a Cancel action', () => {
     setEntry(entry({ status: 'running' }));
 
-    expect(fixture.nativeElement.querySelector('a')).toBeNull();
-    expect(fixture.nativeElement.querySelector('div.kz-game-row')).toBeTruthy();
+    expect(link()).toBeNull();
+    expect(actionButton().textContent?.trim()).toBe('Cancel');
   });
 
   it('shows a chevron only on a tappable row, with no-chevron padding on the other kind instead', () => {
@@ -115,5 +167,49 @@ describe('GameRowComponent', () => {
 
     setEntry(entry({ userSign: -1 }));
     expect(fixture.nativeElement.querySelector('.kz-game-row-stone--white')).toBeTruthy();
+  });
+
+  it('goes pending, dims, drops the link and shows "Deleting…" once the player confirms deleting a done game', () => {
+    setEntry(entry({ status: 'done' }));
+    confirmAction();
+    fixture.detectChanges();
+
+    expect(gameHistory.resignCalls).toEqual(['game-1']);
+    expect(fixture.nativeElement.querySelector('.kz-game-row--pending')).toBeTruthy();
+    expect(link()).toBeNull();
+    expect(fixture.nativeElement.querySelector('.kz-game-action')).toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('Deleting…');
+  });
+
+  it('shows "Cancelling…" while a running game\'s cancel is in flight', () => {
+    setEntry(entry({ status: 'running' }));
+    confirmAction();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('Cancelling…');
+  });
+
+  it('emits removed with the game id once the backend confirms', () => {
+    setEntry(entry({ status: 'done' }));
+    const removedIds: string[] = [];
+    fixture.componentInstance.removed.subscribe((id) => removedIds.push(id));
+
+    confirmAction();
+    gameHistory.resignResult.next();
+    gameHistory.resignResult.complete();
+
+    expect(removedIds).toEqual(['game-1']);
+  });
+
+  it('puts the row back as it was if the request fails', () => {
+    setEntry(entry({ status: 'done' }));
+    gameHistory.resignGame = () => throwError(() => new Error('network error'));
+
+    confirmAction();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.kz-game-row--pending')).toBeNull();
+    expect(link()).toBeTruthy();
+    expect(actionButton()).toBeTruthy();
   });
 });

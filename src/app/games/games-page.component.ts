@@ -66,6 +66,11 @@ export class GamesPageComponent {
     this.loadGames();
   }
 
+  /** GameRow's (removed) output: its cancel/delete request was confirmed by the backend — drop it from the list, counts recompute automatically. */
+  onRowRemoved(gameId: string): void {
+    this.entries.update((entries) => entries.filter((e) => e.id !== gameId));
+  }
+
   private loadGames(): void {
     this.screen.set('loading');
 

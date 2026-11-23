@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { map, Observable } from 'rxjs';
+import { delay, map, Observable, of } from 'rxjs';
 import { forkJoin } from 'rxjs';
 import { GameHistoryService } from './game-history.service';
 import type { GameHistoryDto } from './game-history.model';
@@ -16,6 +16,9 @@ import { SgfParserService } from '../sgf/sgf-parser.service';
 export class MockGameHistoryService extends GameHistoryService {
   private readonly http = inject(HttpClient);
   private readonly sgfParser = inject(SgfParserService);
+
+  /** Games "resigned" (cancelled/deleted) this session — filtered out of every subsequent list, so the mock behaves like a real resign endpoint across a refetch. */
+  private readonly resignedIds = new Set<string>();
 
   private static readonly BASE = 'games_test';
   private static readonly FILES = {
@@ -95,8 +98,16 @@ export class MockGameHistoryService extends GameHistoryService {
    */
   listGames(): Observable<GameHistoryDto[]> {
     return this.fetchRealGame('mock-game').pipe(
-      map((realGame) => [realGame, ...MockGameHistoryService.syntheticGames()])
+      map((realGame) =>
+        [realGame, ...MockGameHistoryService.syntheticGames()].filter((dto) => !this.resignedIds.has(dto.id))
+      )
     );
+  }
+
+  /** Mock only: no real network call, just marks the id resigned and a short delay to exercise the row's "while the request runs" state. */
+  resignGame(gameId: string): Observable<void> {
+    this.resignedIds.add(gameId);
+    return of(undefined).pipe(delay(400));
   }
 
   private fetchRealGame(gameId: string): Observable<GameHistoryDto> {

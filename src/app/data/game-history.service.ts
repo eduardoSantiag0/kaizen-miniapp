@@ -11,4 +11,10 @@ export abstract class GameHistoryService {
   abstract getGameHistory(gameId: string): Observable<GameHistoryDto>;
   /** GamesPage's list — the real backend only ever exposes "all of the chat's games" (no filtering/single-game lookup server-side; see docs/backend-contract). */
   abstract listGames(): Observable<GameHistoryDto[]>;
+  /**
+   * Resigns one game's job (HANDOFF-update.md section 1): for a running/queued
+   * analysis this cancels it, for an analyzed game this deletes it. There is no
+   * real endpoint for this yet — see docs/backend-contract/resign-endpoint-proposal.md.
+   */
+  abstract resignGame(gameId: string): Observable<void>;
 }

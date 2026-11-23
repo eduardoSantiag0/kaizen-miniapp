@@ -3,12 +3,12 @@
 }
 
 .kz-game-row {
+  position: relative; /* anchors .kz-game-row-link's inset: 0 */
   display: flex;
   align-items: center;
   gap: 14px;
   min-height: 78px;
   padding: 12px 0;
-  text-decoration: none;
   color: inherit;
   border-top: 1px solid var(--kz-rule-list);
 
@@ -20,6 +20,25 @@
   &--no-divider {
     border-top: none;
   }
+
+  /* "While the request runs" (HANDOFF-update.md section 1): dims the whole row;
+     the link is gone (tappable() is false while pending) and the action is
+     @if'd out, so nothing underneath remains interactive. */
+  &--pending {
+    opacity: 0.5;
+  }
+}
+
+/*
+ * Stretched over the whole row rather than wrapping it, so a <kz-game-action>
+ * button can sit beside it instead of nesting inside it (a button can't sit
+ * inside a link). Tapping anywhere else on the row still opens the exercise;
+ * the action sits above this in z-index so its own taps reach it instead.
+ */
+.kz-game-row-link {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
 }
 
 .kz-game-row-thumb {
@@ -122,11 +141,23 @@
   }
 }
 
+/* One cell per text line, right-aligned (HANDOFF-update.md section 1): Won/Lost
+   beside the name, the result beside the meta line, the action beside the
+   status line. */
 .kz-game-row-outcome {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: 2px;
+}
+
+/* Only the action itself needs to clear .kz-game-row-link's z-index: 1 — the
+   rest of the outcome column (Won/Lost, result) stays non-positioned so a tap
+   there still falls through to the link underneath, same as the thumb/text. */
+.kz-game-row-action {
+  position: relative;
+  z-index: 2;
+  margin-top: 2px;
 }
 
 .kz-game-row-outcome-label {

@@ -69,4 +69,16 @@ describe('MockGameHistoryService', () => {
       req.flush('(;FF[4]SZ[19])');
     }
   });
+
+  it('resignGame removes the game from every subsequent listGames call', (done) => {
+    service.resignGame('mock-game-clean').subscribe(() => {
+      service.listGames().subscribe((dtos) => {
+        expect(dtos.map((d) => d.id)).not.toContain('mock-game-clean');
+        done();
+      });
+      for (const req of httpMock.match(() => true)) {
+        req.flush('(;FF[4]SZ[19])');
+      }
+    });
+  });
 });
