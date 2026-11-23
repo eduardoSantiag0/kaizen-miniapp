@@ -69,12 +69,14 @@ describe('GamesPageComponent', () => {
     return fixture;
   }
 
-  it('shows a loading state before the list arrives', () => {
+  it('shows a loading skeleton (no counts) before the list arrives', () => {
     create();
-    expect(fixture.nativeElement.textContent).toContain('Loading your games');
+    expect(fixture.nativeElement.querySelector('[role="status"][aria-label="Loading games"]')).toBeTruthy();
+    expect(fixture.nativeElement.querySelectorAll('.kz-games-skeleton-row').length).toBe(3);
+    expect(fixture.nativeElement.querySelector('.kz-games-filter-count')).toBeNull();
   });
 
-  it('groups rows into Today/Earlier and renders both sections', () => {
+  it('groups rows into Today/Yesterday and renders both sections', () => {
     create();
     stub.games$.next([
       makeDto({ id: 'today-game', middlegameAnalysed: DONE_SGF }),
@@ -85,7 +87,7 @@ describe('GamesPageComponent', () => {
     const sectionTitles = Array.from(fixture.nativeElement.querySelectorAll('.kz-games-section-title')).map(
       (el) => (el as HTMLElement).textContent
     );
-    expect(sectionTitles).toEqual(['Today', 'Earlier']);
+    expect(sectionTitles).toEqual(['Today', 'Yesterday']);
     expect(fixture.nativeElement.querySelectorAll('kz-game-row').length).toBe(2);
   });
 
@@ -125,7 +127,21 @@ describe('GamesPageComponent', () => {
     stub.games$.next([]);
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).toContain('No analyzed games yet');
+    expect(fixture.nativeElement.textContent).toContain('No games yet');
+  });
+
+  it('shows filter-specific empty copy when a filter has no games, distinct from the all-empty state', () => {
+    create();
+    stub.games$.next([makeDto({ id: 'g-ogs', middlegameAnalysed: DONE_SGF })]);
+    fixture.detectChanges();
+
+    const dgsTab = Array.from(fixture.nativeElement.querySelectorAll('.kz-games-filter')).find((b) =>
+      (b as HTMLElement).textContent?.includes('DGS'),
+    ) as HTMLElement;
+    dgsTab.click();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('No DGS games');
   });
 
   it('shows a failed state with a working retry button', () => {
@@ -139,7 +155,7 @@ describe('GamesPageComponent', () => {
     const retryBtn = fixture.nativeElement.querySelector('.kz-games-retry') as HTMLButtonElement;
     retryBtn.click();
     fixture.detectChanges();
-    expect(fixture.nativeElement.textContent).toContain('Loading your games');
+    expect(fixture.nativeElement.querySelector('[role="status"][aria-label="Loading games"]')).toBeTruthy();
 
     stub.games$.next([makeDto({ id: 'recovered', middlegameAnalysed: DONE_SGF })]);
     fixture.detectChanges();
@@ -157,7 +173,9 @@ describe('GamesPageComponent', () => {
 
     const telegram = TestBed.inject(TelegramService);
     spyOn(telegram, 'showPopup').and.callFake((_params, callback) => callback('confirm'));
-    (fixture.nativeElement.querySelector('.kz-game-action') as HTMLButtonElement).click();
+    (fixture.nativeElement.querySelector('.kz-game-menu-trigger') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelector('.kz-game-menu-item') as HTMLButtonElement).click();
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelectorAll('kz-game-row').length).toBe(1);

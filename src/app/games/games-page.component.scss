@@ -20,46 +20,47 @@
 }
 
 .kz-games-banner {
-  width: 358px;
-  height: 104px;
-  max-width: 100%;
+  width: 100%;
+  height: 80px;
   object-fit: cover;
-  object-position: 50% 45%;
+  object-position: 50% 42%;
   border-radius: 3px;
 }
 
 .kz-games-title-block {
-  margin-top: 18px;
+  margin-top: 12px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 2px;
 }
 
 .kz-games-title {
   margin: 0;
-  font: 600 32px/38px 'IBM Plex Sans', sans-serif;
+  font: 600 26px/32px 'IBM Plex Sans', sans-serif;
   letter-spacing: -0.02em;
   color: var(--kz-ink);
 }
 
 .kz-games-intro {
   margin: 0;
-  font: 400 15px/21px 'IBM Plex Sans', sans-serif;
+  font: 400 14px/20px 'IBM Plex Sans', sans-serif;
   color: var(--kz-hint);
 }
 
 .kz-games-filters {
-  margin-top: 18px;
+  margin-top: 12px;
   display: flex;
-  gap: 22px;
+  gap: 24px;
   border-bottom: 1px solid var(--kz-rule-list);
 }
 
 .kz-games-filter {
+  min-width: 44px;
   height: 44px;
   margin-bottom: -1px; /* the active underline sits flush over the group's own border */
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   background: none;
   border: none;
@@ -90,6 +91,52 @@
   color: var(--kz-hint);
 }
 
+/* GamesLoading artboard (HANDOFF-games-refinement.md section 7): header and
+   filters stay, but no counts; three placeholder rows stand in for the list. */
+.kz-games-skeleton {
+  padding-top: 22px;
+}
+
+.kz-games-skeleton-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0 14px;
+
+  &:not(:first-child) {
+    border-top: 1px solid var(--kz-rule-list);
+  }
+}
+
+.kz-games-skeleton-thumb {
+  flex: 0 0 auto;
+  width: 56px;
+  height: 56px;
+  border-radius: 3px;
+  background: var(--kz-skeleton);
+}
+
+.kz-games-skeleton-lines {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.kz-games-skeleton-bar {
+  height: 12px;
+  border-radius: 3px;
+  background: var(--kz-skeleton);
+
+  &--wide {
+    width: 70%;
+  }
+
+  &--narrow {
+    width: 45%;
+  }
+}
+
 .kz-games-state {
   margin-top: 22px;
 }
@@ -110,12 +157,12 @@
   color: var(--kz-hint);
 }
 
-/* HANDOFF-games-update.md section 3: translucent fill + 1px inset edge, not
+/* HANDOFF-games-refinement.md section 7: translucent fill + 1px inset edge, not
    the solid primary-colour treatment used elsewhere. */
 .kz-games-retry {
   margin-top: 16px;
   width: 100%;
-  height: 52px;
+  height: 44px;
   border-radius: 3px;
   border: none;
   box-shadow: inset 0 0 0 1px var(--kz-bar-edge);

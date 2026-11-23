@@ -6,7 +6,7 @@ import { PaperBackgroundComponent } from '../shared/paper-background/paper-backg
 import { SeigaihaFillComponent } from '../shared/seigaiha-fill/seigaiha-fill.component';
 import { GameRowComponent } from './components/game-row/game-row.component';
 import { deriveGameListEntry, type GameListEntry } from './game-list-entry';
-import { isToday } from './game-list-format';
+import { isToday, isYesterday } from './game-list-format';
 
 export type ServerFilter = 'all' | 'OGS' | 'DGS';
 type Screen = 'loading' | 'ready' | 'error';
@@ -45,11 +45,22 @@ export class GamesPageComponent {
     const entries = this.filteredEntries();
     return {
       today: entries.filter((e) => isToday(e.date)),
-      earlier: entries.filter((e) => !isToday(e.date)),
+      yesterday: entries.filter((e) => isYesterday(e.date)),
+      earlier: entries.filter((e) => !isToday(e.date) && !isYesterday(e.date)),
     };
   });
 
-  readonly isEmpty = computed(() => this.groups().today.length === 0 && this.groups().earlier.length === 0);
+  readonly isEmpty = computed(() => this.filteredEntries().length === 0);
+
+  /** HANDOFF-games-refinement.md section 7: distinct copy for "no games ever" vs. "none for this filter". */
+  readonly emptyCopy = computed(() => {
+    const filter = this.filter();
+    if (this.entries().length > 0) {
+      if (filter === 'DGS') return { title: 'No DGS games', body: 'Games you export from DGS will appear here.' };
+      if (filter === 'OGS') return { title: 'No OGS games', body: 'Games you export from OGS will appear here.' };
+    }
+    return { title: 'No games yet', body: 'Games you export to Kaizen from OGS or DGS will appear here.' };
+  });
 
   constructor() {
     // GamesPage is root (HANDOFF.md section 4): Telegram's own header shows

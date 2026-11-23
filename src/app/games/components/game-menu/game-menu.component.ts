@@ -1,10 +1,9 @@
-import { Component, computed, inject, input, output } from '@angular/core';
+import { Component, computed, inject, input, output, signal } from '@angular/core';
 import { TelegramService } from '../../../core/telegram.service';
 import type { GameStatus } from '../../game-list-entry';
 
-interface ActionCopy {
+interface MenuCopy {
   label: string;
-  ariaLabel: string;
   icon: 'cancel' | 'delete';
   popupTitle: string;
   popupMessage: string;
@@ -12,18 +11,18 @@ interface ActionCopy {
 }
 
 /**
- * The row's Cancel/Delete button (HANDOFF-update.md section 1). Purely
- * presentation + the Telegram confirmation popup — it knows nothing about
- * networking or the row's pending/removed lifecycle, that's GameRow's job.
- * Opens the popup through TelegramService.showPopup, so it still works
- * outside Telegram, in a browser or in tests (spy on the service there).
+ * The row's ⋮ menu (HANDOFF-games-refinement.md section 6) — replaces the
+ * inline Cancel/Delete button from the 23 Nov update. One destructive
+ * menuitem (Delete game / Cancel analysis); tapping it opens the same
+ * Telegram confirmation popup as before. Purely presentation + the
+ * popover's own open/closed state — GameRow still owns pending/removed.
  */
 @Component({
-  selector: 'kz-game-action',
-  templateUrl: './game-action.component.html',
-  styleUrl: './game-action.component.scss',
+  selector: 'kz-game-menu',
+  templateUrl: './game-menu.component.html',
+  styleUrl: './game-menu.component.scss',
 })
-export class GameActionComponent {
+export class GameMenuComponent {
   private readonly telegram = inject(TelegramService);
 
   readonly status = input.required<GameStatus>();
@@ -32,14 +31,16 @@ export class GameActionComponent {
   /** Fires once the player taps the popup's destructive button. */
   readonly confirmed = output<void>();
 
-  readonly copy = computed<ActionCopy>(() => {
+  /** Whether the ⋮ popover is open. */
+  readonly open = signal(false);
+
+  readonly copy = computed<MenuCopy>(() => {
     const opponent = this.opponentName();
 
     switch (this.status()) {
       case 'running':
         return {
-          label: 'Cancel',
-          ariaLabel: `Cancel the analysis of your game vs ${opponent}`,
+          label: 'Cancel analysis',
           icon: 'cancel',
           popupTitle: 'Cancel this analysis?',
           popupMessage: `KataGo stops analyzing your game vs ${opponent}, and the game leaves your list.`,
@@ -47,8 +48,7 @@ export class GameActionComponent {
         };
       case 'waiting':
         return {
-          label: 'Cancel',
-          ariaLabel: `Cancel the analysis of your game vs ${opponent}`,
+          label: 'Cancel analysis',
           icon: 'cancel',
           popupTitle: 'Cancel this analysis?',
           popupMessage: `Your game vs ${opponent} leaves the analysis queue and your list.`,
@@ -56,8 +56,7 @@ export class GameActionComponent {
         };
       case 'done':
         return {
-          label: 'Delete',
-          ariaLabel: `Delete your game vs ${opponent}`,
+          label: 'Delete game',
           icon: 'delete',
           popupTitle: 'Delete this game?',
           popupMessage: `Your game vs ${opponent} and its analysis will be removed from Kaizen.`,
@@ -66,8 +65,19 @@ export class GameActionComponent {
     }
   });
 
-  onTap(): void {
+  readonly triggerLabel = computed(() => `More actions for the game vs ${this.opponentName()}`);
+
+  toggle(): void {
+    this.open.update((v) => !v);
+  }
+
+  close(): void {
+    this.open.set(false);
+  }
+
+  onItemTap(): void {
     const copy = this.copy();
+    this.close();
     this.telegram.showPopup(
       {
         title: copy.popupTitle,

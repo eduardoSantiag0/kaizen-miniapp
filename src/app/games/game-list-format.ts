@@ -37,14 +37,24 @@ export function formatRelativeDate(dateStr: string, now: Date = new Date()): str
 }
 
 /**
- * Groups rows into "Today"/"Earlier" per HANDOFF.md section 4. The source
- * date is the game's own SGF DT[] (when it was played), not an "analysed at"
- * timestamp — the DTO carries nothing else to group by, so "Today" here
- * means "played today," which may read oddly for an older game that just
- * finished analysis moments ago. No better field exists to group on.
+ * Groups rows into "Today"/"Yesterday"/"Earlier" (HANDOFF-games-refinement.md
+ * section 3). The source date is the game's own SGF DT[] (when it was
+ * played), not an "analysed at" timestamp — the DTO carries nothing else to
+ * group by, so "Today" here means "played today," which may read oddly for
+ * an older game that just finished analysis moments ago. No better field
+ * exists to group on.
  */
 export function isToday(dateStr: string, now: Date = new Date()): boolean {
   if (!dateStr) return false;
   const date = parseLocalDate(dateStr);
   return date !== null && startOfDay(date).getTime() === startOfDay(now).getTime();
+}
+
+/** Same grouping source as {@link isToday}, one day back. */
+export function isYesterday(dateStr: string, now: Date = new Date()): boolean {
+  if (!dateStr) return false;
+  const date = parseLocalDate(dateStr);
+  if (!date) return false;
+  const diffDays = Math.round((startOfDay(now).getTime() - startOfDay(date).getTime()) / 86_400_000);
+  return diffDays === 1;
 }

@@ -15,6 +15,20 @@ export interface ThemeTokens {
   barBg: string;
   /** Try again button's 1px inset edge (HANDOFF-games-update.md section 3). */
   barEdge: string;
+  /** "Won · …" (HANDOFF-games-refinement.md section 1). */
+  won: string;
+  /** "Lost · …", and the ⋮ menu's one destructive item (HANDOFF-games-refinement.md section 1). */
+  alert: string;
+  /** ⋮ popover fill (HANDOFF-games-refinement.md section 6). */
+  menuBg: string;
+  /** ⋮ popover's 1px edge (HANDOFF-games-refinement.md section 6). */
+  menuBorder: string;
+  /** ⋮ popover's drop shadow (HANDOFF-games-refinement.md section 6). */
+  menuShadow: string;
+  /** ⋮ trigger's background while the popover is open (HANDOFF-games-refinement.md section 6). */
+  menuHoverBg: string;
+  /** Loading-state row placeholders (HANDOFF-games-refinement.md section 1/7). */
+  skeleton: string;
 }
 
 export const YORU_DARK: ThemeTokens = {
@@ -31,6 +45,13 @@ export const YORU_DARK: ThemeTokens = {
   pine: '#6CC09D',
   barBg: 'rgba(241,230,204,.06)',
   barEdge: 'rgba(241,230,204,.16)',
+  won: '#A3C2A0',
+  alert: '#E8907C',
+  menuBg: '#192538',
+  menuBorder: 'rgba(241,230,204,.12)',
+  menuShadow: 'rgba(0,0,0,.4)',
+  menuHoverBg: 'rgba(241,230,204,.08)',
+  skeleton: 'rgba(241,230,204,.07)',
 };
 
 export const WASHI_LIGHT: ThemeTokens = {
@@ -47,6 +68,13 @@ export const WASHI_LIGHT: ThemeTokens = {
   pine: '#2A604E',
   barBg: 'rgba(28,26,23,.05)',
   barEdge: 'rgba(28,26,23,.18)',
+  won: '#3E6346',
+  alert: '#A4442F',
+  menuBg: '#FBF5E8',
+  menuBorder: 'rgba(28,26,23,.12)',
+  menuShadow: 'rgba(28,26,23,.18)',
+  menuHoverBg: 'rgba(28,26,23,.07)',
+  skeleton: 'rgba(28,26,23,.07)',
 };
 
 /** Shared across both themes. */
@@ -77,6 +105,13 @@ const CSS_VAR_NAMES: Record<keyof ThemeTokens, string> = {
   pine: '--kz-pine',
   barBg: '--kz-bar-bg',
   barEdge: '--kz-bar-edge',
+  won: '--kz-won',
+  alert: '--kz-alert',
+  menuBg: '--kz-menu-bg',
+  menuBorder: '--kz-menu-border',
+  menuShadow: '--kz-menu-shadow',
+  menuHoverBg: '--kz-menu-hover-bg',
+  skeleton: '--kz-skeleton',
 };
 
 export function toCssVariables(tokens: ThemeTokens): Record<string, string> {

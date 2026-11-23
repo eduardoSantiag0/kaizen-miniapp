@@ -2,11 +2,11 @@
 
 <div class="kz-games-page">
   <div class="kz-games-content">
-    <img class="kz-games-banner" src="/assets/kaizen-banner.jpg" alt="" width="358" height="104" />
+    <img class="kz-games-banner" src="/assets/kaizen-banner.jpg" alt="" width="358" height="80" />
 
     <div class="kz-games-title-block">
       <h1 class="kz-games-title">Games</h1>
-      <p class="kz-games-intro">Exported to Kaizen from OGS and DGS. Tap an analyzed game to practice your biggest mistake.</p>
+      <p class="kz-games-intro">Review your games and practice your biggest mistakes.</p>
     </div>
 
     <div class="kz-games-filters" role="group" aria-label="Filter by server">
@@ -17,7 +17,10 @@
         [attr.aria-pressed]="filter() === 'all'"
         (click)="setFilter('all')"
       >
-        All <span class="kz-games-filter-count">{{ counts().all }}</span>
+        All
+        @if (screen() === 'ready') {
+          <span class="kz-games-filter-count">{{ counts().all }}</span>
+        }
       </button>
       <button
         type="button"
@@ -26,7 +29,10 @@
         [attr.aria-pressed]="filter() === 'OGS'"
         (click)="setFilter('OGS')"
       >
-        OGS <span class="kz-games-filter-count">{{ counts().OGS }}</span>
+        OGS
+        @if (screen() === 'ready') {
+          <span class="kz-games-filter-count">{{ counts().OGS }}</span>
+        }
       </button>
       <button
         type="button"
@@ -35,15 +41,25 @@
         [attr.aria-pressed]="filter() === 'DGS'"
         (click)="setFilter('DGS')"
       >
-        DGS <span class="kz-games-filter-count">{{ counts().DGS }}</span>
+        DGS
+        @if (screen() === 'ready') {
+          <span class="kz-games-filter-count">{{ counts().DGS }}</span>
+        }
       </button>
     </div>
 
     @switch (screen()) {
       @case ('loading') {
-        <div class="kz-games-state">
-          <p class="kz-games-state-title kz-games-state-title--hint">Loading your games…</p>
-          <p class="kz-games-state-body">This only takes a moment.</p>
+        <div class="kz-games-skeleton" role="status" aria-label="Loading games">
+          @for (i of [0, 1, 2]; track i) {
+            <div class="kz-games-skeleton-row">
+              <div class="kz-games-skeleton-thumb"></div>
+              <div class="kz-games-skeleton-lines">
+                <div class="kz-games-skeleton-bar kz-games-skeleton-bar--wide"></div>
+                <div class="kz-games-skeleton-bar kz-games-skeleton-bar--narrow"></div>
+              </div>
+            </div>
+          }
         </div>
       }
       @case ('error') {
@@ -56,14 +72,22 @@
       @case ('ready') {
         @if (isEmpty()) {
           <div class="kz-games-state">
-            <p class="kz-games-state-title">No analyzed games yet</p>
-            <p class="kz-games-state-body">Send Kaizen a game from Telegram to get started.</p>
+            <p class="kz-games-state-title">{{ emptyCopy().title }}</p>
+            <p class="kz-games-state-body">{{ emptyCopy().body }}</p>
           </div>
         } @else {
           @if (groups().today.length) {
             <section class="kz-games-section">
               <h2 class="kz-games-section-title">Today</h2>
               @for (entry of groups().today; track entry.id; let first = $first) {
+                <kz-game-row [entry]="entry" [noDividerAbove]="first" (removed)="onRowRemoved($event)" />
+              }
+            </section>
+          }
+          @if (groups().yesterday.length) {
+            <section class="kz-games-section">
+              <h2 class="kz-games-section-title">Yesterday</h2>
+              @for (entry of groups().yesterday; track entry.id; let first = $first) {
                 <kz-game-row [entry]="entry" [noDividerAbove]="first" (removed)="onRowRemoved($event)" />
               }
             </section>

@@ -6,23 +6,24 @@
   position: relative; /* anchors .kz-game-row-link's inset: 0 */
   display: flex;
   align-items: center;
-  gap: 14px;
-  min-height: 78px;
-  padding: 12px 0;
+  gap: 12px;
+  min-height: 56px;
+  padding: 12px 0 14px;
   color: inherit;
   border-top: 1px solid var(--kz-rule-list);
 
-  /* The first row of each section (Today/Earlier) has no divider above it — the
-     section itself supplies that boundary. Driven by an explicit input (the
-     parent's @for `$first`), not a :first-child CSS selector — this class's
-     actual DOM parent is just this row's own host, so :first-child would
-     always match trivially and never reflect the row's position in the list. */
+  /* The first row of each section (Today/Yesterday/Earlier) has no divider
+     above it — the section itself supplies that boundary. Driven by an
+     explicit input (the parent's @for `$first`), not a :first-child CSS
+     selector — this class's actual DOM parent is just this row's own host,
+     so :first-child would always match trivially and never reflect the
+     row's position in the list. */
   &--no-divider {
     border-top: none;
   }
 
   /* "While the request runs" (HANDOFF-update.md section 1): dims the whole row;
-     the link is gone (tappable() is false while pending) and the action is
+     the link is gone (tappable() is false while pending) and the ⋮ menu is
      @if'd out, so nothing underneath remains interactive. */
   &--pending {
     opacity: 0.5;
@@ -30,10 +31,11 @@
 }
 
 /*
- * Stretched over the whole row rather than wrapping it, so a <kz-game-action>
- * button can sit beside it instead of nesting inside it (a button can't sit
- * inside a link). Tapping anywhere else on the row still opens the exercise;
- * the action sits above this in z-index so its own taps reach it instead.
+ * Stretched over the whole row rather than wrapping it, so <kz-game-menu>
+ * can sit beside it instead of nesting inside it (a button can't sit inside
+ * a link). Tapping anywhere else on the row still opens the exercise; the
+ * menu/chevron column sits above this in z-index so its own taps reach it
+ * instead.
  */
 .kz-game-row-link {
   position: absolute;
@@ -41,141 +43,130 @@
   z-index: 1;
 }
 
+/* 56 × 56 (HANDOFF-games-refinement.md section 4). A 9 × 9 window around the
+   biggest mistake needs a `position` field the DTO doesn't carry yet
+   (section 8/9) — until then this keeps the board-size grid + the user's
+   corner stone, with no invented stones in between. */
 .kz-game-row-thumb {
   flex: 0 0 auto;
   position: relative;
-  width: 44px;
-  height: 44px;
+  width: 56px;
+  height: 56px;
   border-radius: 3px;
   background-color: #dcae5e; /* Kaya gold — hardcoded, never theme-flipped, matches goban-theme.scss's board colour */
   background-image:
     repeating-linear-gradient(to right, rgba(28, 22, 12, 0.55) 0 1px, transparent 1px 100%),
     repeating-linear-gradient(to bottom, rgba(28, 22, 12, 0.55) 0 1px, transparent 1px 100%);
-  background-size: calc(44px / var(--kz-thumb-board-size)) calc(44px / var(--kz-thumb-board-size));
-  background-position: calc(22px / var(--kz-thumb-board-size)) calc(22px / var(--kz-thumb-board-size));
+  background-size: calc(56px / var(--kz-thumb-board-size)) calc(56px / var(--kz-thumb-board-size));
+  background-position: calc(28px / var(--kz-thumb-board-size)) calc(28px / var(--kz-thumb-board-size));
 }
 
-/* Same stone rendering as the exercise board (goban-theme.scss's .shudan-stone-image rules) — duplicated rather than shared, since the two live in unrelated visual contexts (a board vertex vs. a list thumbnail badge). */
+/* 16px, 2px ring in `base` (HANDOFF-games-refinement.md section 4). */
 .kz-game-row-stone {
   position: absolute;
   right: -5px;
   bottom: -5px;
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
-  background: radial-gradient(circle at 32% 28%, #4a4a4e 0%, #1e1d1f 32%, #121113 100%);
-  box-shadow:
-    0 0 0 2px var(--kz-base),
-    0 1.5px 0 rgba(0, 0, 0, 0.35);
+  background: #1e1d1f;
+  box-shadow: 0 0 0 2px var(--kz-base);
 
   &--white {
-    background: radial-gradient(circle at 32% 28%, #ffffff 0%, #f4ecda 45%, #e0d3b8 100%);
+    background: #f4ecda;
     box-shadow:
       0 0 0 2px var(--kz-base),
-      inset 0 0 0 1.2px rgba(30, 26, 20, 0.85),
-      0 1.5px 0 rgba(0, 0, 0, 0.25);
+      inset 0 0 0 0.75px rgba(30, 26, 20, 0.85);
   }
 }
 
 .kz-game-row-text {
   flex: 1 1 auto;
-  min-width: 0; /* lets the ellipsis rules below actually take effect in a flex child */
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .kz-game-row-name-line {
   display: flex;
   align-items: baseline;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.kz-game-row-vs {
+  font: 400 14px/18px 'IBM Plex Sans', sans-serif;
+  color: var(--kz-hint);
 }
 
 .kz-game-row-name {
   font: 700 17px/22px 'IBM Plex Sans', sans-serif;
   color: var(--kz-ink);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 
 .kz-game-row-rank {
-  flex-shrink: 0;
   font: 400 13px/18px 'IBM Plex Sans', sans-serif;
   color: var(--kz-hint);
 }
 
-.kz-game-row-meta,
-.kz-game-row-status {
+.kz-game-row-result-line {
   margin: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
-.kz-game-row-meta {
-  font: 400 13px/18px 'IBM Plex Sans', sans-serif;
-  color: var(--kz-hint);
-}
-
-.kz-game-row-status {
-  font: 500 13px/18px 'IBM Plex Sans', sans-serif;
-
-  &--done {
-    color: var(--kz-pine);
-  }
-
-  &--running,
-  &--waiting {
-    color: var(--kz-hint);
-  }
-}
-
-.kz-game-row-right {
+.kz-game-row-result {
   flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-
-  /* 18px chevron + 6px gap - 4px chevron margin ≈ 20px — a non-tappable row's
-     trailing edge lands in the same spot without actually drawing one. */
-  &--no-chevron {
-    padding-right: 20px;
-  }
-}
-
-/* One cell per text line, right-aligned (HANDOFF-update.md section 1): Won/Lost
-   beside the name, the result beside the meta line, the action beside the
-   status line. */
-.kz-game-row-outcome {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
-}
-
-/* Only the action itself needs to clear .kz-game-row-link's z-index: 1 — the
-   rest of the outcome column (Won/Lost, result) stays non-positioned so a tap
-   there still falls through to the link underneath, same as the thumb/text. */
-.kz-game-row-action {
-  position: relative;
-  z-index: 2;
-  margin-top: 2px;
-}
-
-.kz-game-row-outcome-label {
-  font: 600 15px/1.2 'IBM Plex Sans', sans-serif;
+  white-space: nowrap;
+  font: 600 14px/20px 'IBM Plex Sans', sans-serif;
   color: var(--kz-hint);
 
   &--won {
-    color: var(--kz-shu);
+    color: var(--kz-won);
+  }
+
+  &--lost {
+    color: var(--kz-alert);
   }
 }
 
-.kz-game-row-outcome-result {
-  font: 400 12px/1.2 'IBM Plex Sans', sans-serif;
+.kz-game-row-meta {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font: 400 13px/20px 'IBM Plex Sans', sans-serif;
   color: var(--kz-hint);
+}
+
+/* ⋮ on top, the arrow below it (HANDOFF-games-refinement.md section 6) —
+   shares a 44px column. */
+.kz-game-row-right {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+
+  /* Reserves the chevron's trailing edge so a non-tappable row's right edge
+     lands in the same spot without actually drawing one. */
+  &--no-chevron {
+    padding-right: 4px;
+  }
+}
+
+.kz-game-row-menu {
+  position: relative;
+  z-index: 2;
+  margin: -13px -12px 0 0;
 }
 
 .kz-game-row-chevron {
   flex: 0 0 auto;
+  margin-top: -2px;
   margin-right: -4px;
   color: var(--kz-hint);
 }

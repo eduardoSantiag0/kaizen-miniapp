@@ -1,14 +1,14 @@
 import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { GameActionComponent } from './game-action.component';
+import { GameMenuComponent } from './game-menu.component';
 import { TelegramService } from '../../../core/telegram.service';
 import type { GameStatus } from '../../game-list-entry';
 import type { TelegramPopupParams } from '../../../core/telegram-webapp';
 
 @Component({
   selector: 'kz-test-host',
-  imports: [GameActionComponent],
-  template: `<kz-game-action [status]="status()" [opponentName]="opponentName()" (confirmed)="log()" />`,
+  imports: [GameMenuComponent],
+  template: `<kz-game-menu [status]="status()" [opponentName]="opponentName()" (confirmed)="log()" />`,
 })
 class TestHostComponent {
   readonly status = signal<GameStatus>('running');
@@ -19,12 +19,21 @@ class TestHostComponent {
   }
 }
 
-describe('GameActionComponent', () => {
+describe('GameMenuComponent', () => {
   let fixture: ComponentFixture<TestHostComponent>;
   let telegram: TelegramService;
 
-  function button(): HTMLButtonElement {
-    return fixture.nativeElement.querySelector('.kz-game-action') as HTMLButtonElement;
+  function trigger(): HTMLButtonElement {
+    return fixture.nativeElement.querySelector('.kz-game-menu-trigger') as HTMLButtonElement;
+  }
+
+  function item(): HTMLButtonElement | null {
+    return fixture.nativeElement.querySelector('.kz-game-menu-item');
+  }
+
+  function openMenu(): void {
+    trigger().click();
+    fixture.detectChanges();
   }
 
   beforeEach(() => {
@@ -34,32 +43,54 @@ describe('GameActionComponent', () => {
     fixture = TestBed.createComponent(TestHostComponent);
   });
 
-  it('shows "Cancel" for a running game, with the cancel aria-label', () => {
+  it('is closed until the ⋮ trigger is tapped, with a per-opponent aria-label', () => {
     fixture.detectChanges();
-    expect(button().textContent?.trim()).toBe('Cancel');
-    expect(button().getAttribute('aria-label')).toBe('Cancel the analysis of your game vs kitsune77');
+    expect(trigger().getAttribute('aria-label')).toBe('More actions for the game vs kitsune77');
+    expect(trigger().getAttribute('aria-expanded')).toBe('false');
+    expect(item()).toBeNull();
+
+    openMenu();
+    expect(trigger().getAttribute('aria-expanded')).toBe('true');
+    expect(item()).toBeTruthy();
   });
 
-  it('shows "Cancel" for a waiting game too, same aria-label as running', () => {
+  it('shows "Cancel analysis" for a running or waiting game', () => {
+    fixture.detectChanges();
+    openMenu();
+    expect(item()!.textContent?.trim()).toBe('Cancel analysis');
+
     fixture.componentInstance.status.set('waiting');
     fixture.detectChanges();
-    expect(button().textContent?.trim()).toBe('Cancel');
-    expect(button().getAttribute('aria-label')).toBe('Cancel the analysis of your game vs kitsune77');
+    expect(item()!.textContent?.trim()).toBe('Cancel analysis');
   });
 
-  it('shows "Delete" for a done game, with the delete aria-label', () => {
+  it('shows "Delete game" for a done game', () => {
     fixture.componentInstance.status.set('done');
     fixture.detectChanges();
-    expect(button().textContent?.trim()).toBe('Delete');
-    expect(button().getAttribute('aria-label')).toBe('Delete your game vs kitsune77');
+    openMenu();
+    expect(item()!.textContent?.trim()).toBe('Delete game');
   });
 
-  it('opens a destructive "Cancel analysis" popup for a running game, with "Keep" as the default button', () => {
+  it('closes via the overlay without confirming anything', () => {
     fixture.detectChanges();
+    openMenu();
+
+    (fixture.nativeElement.querySelector('.kz-game-menu-overlay') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    expect(item()).toBeNull();
+    expect(fixture.componentInstance.events).toEqual([]);
+  });
+
+  it('opens a destructive "Cancel analysis" popup for a running game, with "Keep" as the default button, and closes the menu', () => {
+    fixture.detectChanges();
+    openMenu();
     spyOn(telegram, 'showPopup');
 
-    button().click();
+    item()!.click();
+    fixture.detectChanges();
 
+    expect(item()).toBeNull();
     expect(telegram.showPopup).toHaveBeenCalledTimes(1);
     const params = (telegram.showPopup as jasmine.Spy).calls.mostRecent().args[0] as TelegramPopupParams;
     expect(params.title).toBe('Cancel this analysis?');
@@ -73,9 +104,10 @@ describe('GameActionComponent', () => {
   it('gives waiting and running games different popup copy', () => {
     fixture.componentInstance.status.set('waiting');
     fixture.detectChanges();
+    openMenu();
     spyOn(telegram, 'showPopup');
 
-    button().click();
+    item()!.click();
 
     const params = (telegram.showPopup as jasmine.Spy).calls.mostRecent().args[0] as TelegramPopupParams;
     expect(params.message).toBe('Your game vs kitsune77 leaves the analysis queue and your list.');
@@ -84,9 +116,10 @@ describe('GameActionComponent', () => {
   it('opens a destructive "Delete game" popup for a done game', () => {
     fixture.componentInstance.status.set('done');
     fixture.detectChanges();
+    openMenu();
     spyOn(telegram, 'showPopup');
 
-    button().click();
+    item()!.click();
 
     const params = (telegram.showPopup as jasmine.Spy).calls.mostRecent().args[0] as TelegramPopupParams;
     expect(params.title).toBe('Delete this game?');
@@ -98,11 +131,13 @@ describe('GameActionComponent', () => {
     fixture.detectChanges();
     spyOn(telegram, 'showPopup').and.callFake((_params, callback) => callback('keep'));
 
-    button().click();
+    openMenu();
+    item()!.click();
     expect(fixture.componentInstance.events).toEqual([]);
 
     (telegram.showPopup as jasmine.Spy).and.callFake((_params, callback) => callback('confirm'));
-    button().click();
+    openMenu();
+    item()!.click();
     expect(fixture.componentInstance.events).toEqual(['confirmed']);
   });
 });

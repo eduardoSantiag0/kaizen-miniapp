@@ -69,8 +69,12 @@ describe('GameRowComponent', () => {
     return fixture.nativeElement.querySelector('.kz-game-row-link');
   }
 
-  function actionButton(): HTMLButtonElement {
-    return fixture.nativeElement.querySelector('.kz-game-action') as HTMLButtonElement;
+  function menuTrigger(): HTMLButtonElement {
+    return fixture.nativeElement.querySelector('.kz-game-menu-trigger') as HTMLButtonElement;
+  }
+
+  function menuItem(): HTMLButtonElement | null {
+    return fixture.nativeElement.querySelector('.kz-game-menu-item');
   }
 
   beforeEach(() => {
@@ -82,10 +86,12 @@ describe('GameRowComponent', () => {
     telegram = TestBed.inject(TelegramService);
   });
 
-  /** Drives GameAction's popup through to its destructive button without a real Telegram client. */
+  /** Drives the ⋮ menu's popup through to its destructive button without a real Telegram client. */
   function confirmAction(): void {
     spyOn(telegram, 'showPopup').and.callFake((_params, callback) => callback('confirm'));
-    actionButton().click();
+    menuTrigger().click();
+    fixture.detectChanges();
+    menuItem()!.click();
   }
 
   it('renders a "done" row with a mistake as a stretched link to its exercise, with the full accessible name', () => {
@@ -95,42 +101,46 @@ describe('GameRowComponent', () => {
     expect(row).toBeTruthy();
     const a = link();
     expect(a).toBeTruthy();
-    expect(a!.getAttribute('aria-label')).toBe('kitsune77, won B+R, 19 by 19, Biggest mistake · move 75');
+    expect(a!.getAttribute('aria-label')).toBe('kitsune77, won B+R, 19 by 19, OGS · 19×19 · Nov 9');
     expect(a!.getAttribute('href')).toContain('/game/game-1');
   });
 
-  it('renders the status line text per status', () => {
+  it('renders the second line text per status', () => {
     setEntry(entry({ status: 'done', mistakeMoveNumber: 75 }));
-    expect(fixture.nativeElement.textContent).toContain('Biggest mistake · move 75');
+    expect(fixture.nativeElement.textContent).toContain('OGS · 19×19 · Nov 9');
 
     setEntry(entry({ status: 'running' }));
-    expect(fixture.nativeElement.textContent).toContain('KataGo is analyzing…');
+    expect(fixture.nativeElement.textContent).toContain('⏱ KataGo is analyzing this game…');
 
     setEntry(entry({ status: 'waiting' }));
-    expect(fixture.nativeElement.textContent).toContain('Queued for analysis');
+    expect(fixture.nativeElement.textContent).toContain('⏱ Waiting for analysis');
   });
 
-  it('a "done" row with nothing flagged (mistakeMoveNumber null) shows clean-game copy, is not a link, but still offers Delete', () => {
+  it('a "done" row with nothing flagged (mistakePhases empty) shows "No mistakes to practice", is not a link, but still offers Delete', () => {
     setEntry(entry({ status: 'done', mistakeMoveNumber: null, mistakePhases: [] }));
 
-    expect(fixture.nativeElement.textContent).toContain('No concerns found');
+    expect(fixture.nativeElement.textContent).toContain('No mistakes to practice');
     expect(link()).toBeNull();
     expect(fixture.nativeElement.querySelector('.kz-game-row-right--no-chevron')).toBeTruthy();
-    expect(actionButton().textContent?.trim()).toBe('Delete');
+    expect(menuItem()).toBeNull(); // closed until opened
+    menuTrigger().click();
+    fixture.detectChanges();
+    expect(menuItem()!.textContent?.trim()).toBe('Delete game');
   });
 
-  it('shows "N mistakes to study" with the phase list when more than one phase has a mistake', () => {
-    setEntry(entry({ status: 'done', mistakeMoveNumber: 12, mistakePhases: ['opening', 'middlegame', 'endgame'] }));
+  it('still shows the "Won · B+R" result badge alongside "No mistakes to practice"', () => {
+    setEntry(entry({ status: 'done', mistakeMoveNumber: null, mistakePhases: [], won: true, result: 'B+R' }));
 
-    expect(fixture.nativeElement.textContent).toContain('3 mistakes to study · opening, middlegame, endgame');
-    expect(link()).toBeTruthy(); // still a single tap into the game's own exercise collection, same link as before
+    expect(fixture.nativeElement.querySelector('.kz-game-row-result')!.textContent?.trim()).toBe('Won · B+R');
   });
 
-  it('renders a non-"done" row with no link, but a Cancel action', () => {
+  it('renders a non-"done" row with no link, but a Cancel action in the ⋮ menu', () => {
     setEntry(entry({ status: 'running' }));
 
     expect(link()).toBeNull();
-    expect(actionButton().textContent?.trim()).toBe('Cancel');
+    menuTrigger().click();
+    fixture.detectChanges();
+    expect(menuItem()!.textContent?.trim()).toBe('Cancel analysis');
   });
 
   it('shows a chevron only on a tappable row, with no-chevron padding on the other kind instead', () => {
@@ -143,16 +153,16 @@ describe('GameRowComponent', () => {
     expect(fixture.nativeElement.querySelector('.kz-game-row-right--no-chevron')).toBeTruthy();
   });
 
-  it('colours "Won" shu and "Lost" hint via the --won modifier class', () => {
-    setEntry(entry({ won: true }));
-    let label = fixture.nativeElement.querySelector('.kz-game-row-outcome-label') as HTMLElement;
-    expect(label.textContent?.trim()).toBe('Won');
-    expect(label.classList.contains('kz-game-row-outcome-label--won')).toBe(true);
+  it('colours "Won" with the won token and "Lost" with the alert token', () => {
+    setEntry(entry({ won: true, result: 'B+R' }));
+    let result = fixture.nativeElement.querySelector('.kz-game-row-result') as HTMLElement;
+    expect(result.textContent?.trim()).toBe('Won · B+R');
+    expect(result.classList.contains('kz-game-row-result--won')).toBe(true);
 
-    setEntry(entry({ won: false }));
-    label = fixture.nativeElement.querySelector('.kz-game-row-outcome-label') as HTMLElement;
-    expect(label.textContent?.trim()).toBe('Lost');
-    expect(label.classList.contains('kz-game-row-outcome-label--won')).toBe(false);
+    setEntry(entry({ won: false, result: 'W+4.5' }));
+    result = fixture.nativeElement.querySelector('.kz-game-row-result') as HTMLElement;
+    expect(result.textContent?.trim()).toBe('Lost · W+4.5');
+    expect(result.classList.contains('kz-game-row-result--lost')).toBe(true);
   });
 
   it('suppresses the divider above the first row of a section via noDividerAbove', () => {
@@ -161,7 +171,7 @@ describe('GameRowComponent', () => {
     expect(el.classList.contains('kz-game-row--no-divider')).toBe(true);
   });
 
-  it('shows the user\'s stone colour in the thumbnail badge', () => {
+  it("shows the user's stone colour in the thumbnail badge", () => {
     setEntry(entry({ userSign: 1 }));
     expect(fixture.nativeElement.querySelector('.kz-game-row-stone--white')).toBeNull();
 
@@ -169,7 +179,7 @@ describe('GameRowComponent', () => {
     expect(fixture.nativeElement.querySelector('.kz-game-row-stone--white')).toBeTruthy();
   });
 
-  it('goes pending, dims, drops the link and shows "Deleting…" once the player confirms deleting a done game', () => {
+  it('goes pending, dims, drops the link, hides the ⋮ menu, and shows "Deleting…" once the player confirms deleting a done game', () => {
     setEntry(entry({ status: 'done' }));
     confirmAction();
     fixture.detectChanges();
@@ -177,7 +187,8 @@ describe('GameRowComponent', () => {
     expect(gameHistory.resignCalls).toEqual(['game-1']);
     expect(fixture.nativeElement.querySelector('.kz-game-row--pending')).toBeTruthy();
     expect(link()).toBeNull();
-    expect(fixture.nativeElement.querySelector('.kz-game-action')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.kz-game-menu-trigger')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.kz-game-row-result')).toBeNull();
     expect(fixture.nativeElement.textContent).toContain('Deleting…');
   });
 
@@ -210,6 +221,6 @@ describe('GameRowComponent', () => {
 
     expect(fixture.nativeElement.querySelector('.kz-game-row--pending')).toBeNull();
     expect(link()).toBeTruthy();
-    expect(actionButton()).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('.kz-game-menu-trigger')).toBeTruthy();
   });
 });
