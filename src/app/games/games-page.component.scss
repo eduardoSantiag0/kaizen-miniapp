@@ -110,16 +110,16 @@
   color: var(--kz-hint);
 }
 
-/* Reuses the exercise screen's primary button look (exercise-actions.component.scss's
-   .kz-btn--primary) — duplicated rather than shared across components, since
-   there's no global button-style stylesheet today and this is a single button. */
+/* HANDOFF-games-update.md section 3: translucent fill + 1px inset edge, not
+   the solid primary-colour treatment used elsewhere. */
 .kz-games-retry {
   margin-top: 16px;
   width: 100%;
   height: 52px;
   border-radius: 3px;
   border: none;
-  background: var(--kz-primary);
-  color: var(--kz-on-primary);
+  box-shadow: inset 0 0 0 1px var(--kz-bar-edge);
+  background: var(--kz-bar-bg);
+  color: var(--kz-ink);
   font: 700 17px/1 'IBM Plex Sans', sans-serif;
 }

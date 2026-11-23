@@ -11,6 +11,10 @@ export interface ThemeTokens {
   disabledBg: string;
   shu: string;
   pine: string;
+  /** Try again button fill only (HANDOFF-games-update.md section 3). */
+  barBg: string;
+  /** Try again button's 1px inset edge (HANDOFF-games-update.md section 3). */
+  barEdge: string;
 }
 
 export const YORU_DARK: ThemeTokens = {
@@ -25,6 +29,8 @@ export const YORU_DARK: ThemeTokens = {
   disabledBg: 'rgba(241,230,204,.08)',
   shu: '#EE7253',
   pine: '#6CC09D',
+  barBg: 'rgba(241,230,204,.06)',
+  barEdge: 'rgba(241,230,204,.16)',
 };
 
 export const WASHI_LIGHT: ThemeTokens = {
@@ -39,6 +45,8 @@ export const WASHI_LIGHT: ThemeTokens = {
   disabledBg: 'rgba(28,26,23,.06)',
   shu: '#A8301B',
   pine: '#2A604E',
+  barBg: 'rgba(28,26,23,.05)',
+  barEdge: 'rgba(28,26,23,.18)',
 };
 
 /** Shared across both themes. */
@@ -67,6 +75,8 @@ const CSS_VAR_NAMES: Record<keyof ThemeTokens, string> = {
   disabledBg: '--kz-disabled-bg',
   shu: '--kz-shu',
   pine: '--kz-pine',
+  barBg: '--kz-bar-bg',
+  barEdge: '--kz-bar-edge',
 };
 
 export function toCssVariables(tokens: ThemeTokens): Record<string, string> {
