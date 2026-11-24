@@ -8,7 +8,7 @@
     [step]="state().step"
     [totalSteps]="state().totalSteps"
     [showProgress]="state().screen === 'ready'"
-    [showBack]="mode() !== 'daily'"
+    [showBack]="showContextBack()"
     (back)="backToGames()"
   />
 

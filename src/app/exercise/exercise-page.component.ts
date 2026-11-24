@@ -188,6 +188,22 @@ export class ExercisePageComponent {
     return line ? actionsFor(this.state()) : actionsForScreen(this.state().screen)!;
   });
 
+  /**
+   * The in-page "‹ Games" button in ExerciseContext — daily mode never shows
+   * it (Telegram's own BackButton is the only way back there, see menuModeOn's
+   * comment), and menu mode hides it too wherever the bottom action area
+   * already offers its own "Back to games" button (the sgfError screen, and
+   * 'done' with no more exercises in this game) — otherwise the player would
+   * see two ways back to Games at once.
+   */
+  readonly showContextBack = computed(() => {
+    if (this.modeOn() === 'daily') return false;
+    const kind = this.actions().kind;
+    if (kind === 'backToGames') return false;
+    if (kind === 'correct' && !this.hasNext()) return false;
+    return true;
+  });
+
   readonly canUndoState = computed(() => this.line() !== null && canUndo(this.state()));
 
   /** Progressive disclosure: once the line is done, the Tools row hands off entirely to ExerciseActions — kept visible for 'wrong' (Undo/Reset/Hint/Zoom still matter there). */

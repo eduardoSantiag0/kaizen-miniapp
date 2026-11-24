@@ -84,6 +84,11 @@ describe('ExercisePageComponent', () => {
     expect(fixture.nativeElement.querySelector('.shudan-goban')).not.toBeNull();
   });
 
+  it('shows the in-page "back to games" button in menu mode while a line is still in progress', () => {
+    createFixture().detectChanges();
+    expect(fixture.nativeElement.querySelector('.kz-back')).toBeTruthy();
+  });
+
   it('orders Board, then KaizenMessage, then ExerciseTools (user-requested order, overriding HANDOFF.md section 5 here)', () => {
     createFixture().detectChanges();
 
@@ -107,6 +112,15 @@ describe('ExercisePageComponent', () => {
     expect(fixture.nativeElement.querySelector('kz-kaizen-message')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('kz-goban-view')).toBeNull();
     expect(fixture.nativeElement.querySelector('kz-exercise-tools')).toBeNull();
+  });
+
+  it('hides the in-page "back to games" button on the sgfError screen — ExerciseActions\' own "Back to games" button already covers it, and showing both reads as two ways back', () => {
+    stubHistory.dto = { ...stubHistory.dto, middlegameAnalysed: '(;FF[4]SZ[9];B[cc];W[gg])' };
+    createFixture().detectChanges();
+
+    expect(fixture.componentInstance.actions().kind).toBe('backToGames');
+    expect(fixture.nativeElement.querySelector('.kz-back')).toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('Back to games');
   });
 
   it('shows a retryable error screen on a load failure, and "Try again" re-fetches the same game', () => {
@@ -401,6 +415,19 @@ describe('ExercisePageComponent', () => {
 
       expect(emitted).toBe(true);
       expect(router.navigate).toHaveBeenCalledWith(['/']);
+    }));
+
+    it('hides the in-page "back to games" button once \'done\' with no next exercise — ExerciseActions\' own primary button already reads "Back to games"', fakeAsync(() => {
+      createFixture().detectChanges();
+
+      fixture.componentInstance.onVertexTap([4, 2]); // ec, correct
+      tick(900);
+      fixture.componentInstance.onVertexTap([4, 3]); // ed, correct, final move
+      fixture.detectChanges();
+
+      expect(fixture.componentInstance.state().phase).toBe('done');
+      expect(fixture.componentInstance.hasNext()).toBe(false);
+      expect(fixture.nativeElement.querySelector('.kz-back')).toBeNull();
     }));
 
     it('steps to the next exercise in the collection instead of navigating away, swapping the label and completion copy on the way', fakeAsync(() => {
