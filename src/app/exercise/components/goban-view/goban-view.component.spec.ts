@@ -61,6 +61,9 @@ describe('GobanViewComponent', () => {
     state = toggleHint(state);
     state = playVertex(state, tree, [4, 2]); // ec, variant 0 -> reply
     state = playOpponentReply(state, tree); // -> play, step 2
+    // Playing ec correctly turned hint back off — re-enable it for step 2,
+    // same as the player tapping Hint again for the next move.
+    state = toggleHint(state);
 
     setState(state);
     expect(hintVertices()).toEqual([[4, 3]]); // ed

@@ -1,4 +1,13 @@
 <div class="kz-context">
+  @if (showBack()) {
+    <button type="button" class="kz-back" aria-label="Back to games" (click)="back.emit()">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+        <path d="M11 4l-5 5 5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+      Games
+    </button>
+  }
+
   <p class="kz-turn-line">
     @if (turnSign() !== null) {
       <kz-stone-dot [sign]="turnSign()!" />

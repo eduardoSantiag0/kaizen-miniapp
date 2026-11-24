@@ -1,4 +1,4 @@
-import { Component, DestroyRef, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
+﻿import { Component, DestroyRef, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
 import { Router } from '@angular/router';
 import type { Vertex } from '@sabaki/shudan';
 import GoBoard from '@sabaki/go-board';
@@ -75,20 +75,33 @@ export class ExercisePageComponent {
    * a session mode); backToGames() below already picks the right target per
    * mode(). Exists as its own input mainly so a menu-mode caller could still
    * suppress it if ever needed, without this component owning that decision.
+   *
+   * Read through `menuModeOn` everywhere below, never bare: `withComponentInputBinding`
+   * (app.config.ts) overwrites every input that has no matching route param/data/query-param
+   * to `undefined` for a *routed* instantiation — exactly what `/game/:gameId` is — discarding
+   * this input's own declared default and silently hiding the Telegram BackButton on every
+   * menu-mode exercise. The daily-mode usage (PracticeSessionComponent's `<kz-exercise-page>`)
+   * is a plain child-template binding, never routed, so it never hit this.
    */
   readonly menuMode = input(true);
+  private readonly menuModeOn = computed(() => this.menuMode() ?? true);
 
   /**
    * 'daily' reuses this whole screen for one Daily Practice exercise
    * (handoff section 6/11) instead of walking gameId's own 3-phase
    * collection: a session wrapper drives several different games' exercises
    * through this one component by rebinding gameId/phase per exercise.
+   *
+   * Read through `modeOn` everywhere below — see `menuModeOn`'s comment above,
+   * the same router gotcha applies here.
    */
   readonly mode = input<ExercisePageMode>('menu');
+  private readonly modeOn = computed<ExercisePageMode>(() => this.mode() ?? 'menu');
   /** Daily mode only: which single phase to load — skips the menu-mode "try all 3 phases" heuristic entirely, since the session already knows. */
   readonly phase = input<GamePhase | null>(null);
   /** Daily mode only: Continuation Depth (M) preference, the starting point before any "Go deeper" taps — handoff section 5/7. Ignored in menu mode. */
   readonly depth = input(4);
+  private readonly depthOn = computed(() => this.depth() ?? 4);
   /** Daily mode only: Accepted first moves (Top Variants, N) preference — handoff section 5/7. Clamps the loaded exercise to KataGo's first N first-move candidates (already ranked best-first). null (menu mode) leaves every stored variant accepted. */
   readonly topVariants = input<number | null>(null);
   /** Daily mode only: precomputed "Exercise k of n" position text — the session wrapper owns session-position arithmetic, this component only displays it. */
@@ -119,7 +132,7 @@ export class ExercisePageComponent {
   private readonly collectionIndex = signal(0);
   private readonly dailyExercise = signal<LoadedExercise | null>(null);
   private readonly exercise = computed<LoadedExercise | null>(() =>
-    this.mode() === 'daily' ? this.dailyExercise() : this.collection()[this.collectionIndex()] ?? null,
+    this.modeOn() === 'daily' ? this.dailyExercise() : this.collection()[this.collectionIndex()] ?? null,
   );
   readonly hasNext = computed(() => this.collectionIndex() < this.collection().length - 1);
   /** Label for the 'done' phase's primary action — swaps automatically, no external override needed. Menu mode only. */
@@ -128,7 +141,7 @@ export class ExercisePageComponent {
   /** Continuation Depth as it currently stands for this exercise — starts at `depth()`, rises by Go deeper taps, resets to `depth()` on Try another line. Daily mode only. */
   private readonly currentDepth = signal(4);
   /** The maxPlies argument playVertex/goDeeper expect — daily mode derives it from currentDepth (handoff section 7: `plies = min(1 + M, available)`); menu mode passes the default (10), which is provably identical to the old `min(5, ceil(len/2))` formula for every branch length exercise-tree.ts can ever produce. */
-  private readonly effectiveMaxPlies = computed(() => (this.mode() === 'daily' ? 1 + this.currentDepth() : 10));
+  private readonly effectiveMaxPlies = computed(() => (this.modeOn() === 'daily' ? 1 + this.currentDepth() : 10));
   private readonly nextGoDeeperDepth = computed(() => Math.min(10, this.currentDepth() + 2));
   /** Drives LineCompleteActions' "Go deeper" disabled state — shown but disabled once KataGo's stored analysis is exhausted (handoff section 6), never hidden. */
   readonly canGoDeeper = computed(() => {
@@ -166,7 +179,7 @@ export class ExercisePageComponent {
     const line = this.line();
     // messageForScreen/actionsForScreen only return null for 'ready', and line is only ever
     // null before a 'ready' state exists (see loadGame), so the fallbacks below never run.
-    const isFinalExercise = this.mode() === 'daily' ? false : !this.hasNext();
+    const isFinalExercise = this.modeOn() === 'daily' ? false : !this.hasNext();
     return line ? messageFor(this.state(), line, isFinalExercise) : messageForScreen(this.state().screen)!;
   });
 
@@ -208,7 +221,7 @@ export class ExercisePageComponent {
     // could flip between menu/session mode without reconstructing this
     // component. hideBackButton is harmless to call when never shown.
     effect(() => {
-      if (this.menuMode()) {
+      if (this.menuModeOn()) {
         this.telegram.showBackButton(this.backToGames);
       } else {
         this.telegram.hideBackButton(this.backToGames);
@@ -231,7 +244,7 @@ export class ExercisePageComponent {
     // 'wrong' isn't a confirmed move, and 'reply' is a transient ~900ms
     // animation this never persists mid-way through.
     effect(() => {
-      if (this.mode() !== 'daily') return;
+      if (this.modeOn() !== 'daily') return;
       const s = this.state();
       if (s.screen !== 'ready' || (s.phase !== 'play' && s.phase !== 'done')) return;
 
@@ -247,12 +260,12 @@ export class ExercisePageComponent {
     // meant to be read once per exercise load, not reactively afterward (handoff section
     // 12 open question 4: a preference change applies from the next exercise, not this one).
     const progress = untracked(() => this.progress());
-    this.currentDepth.set(progress?.currentDepth ?? untracked(() => this.depth()));
+    this.currentDepth.set(progress?.currentDepth ?? untracked(() => this.depthOn()));
 
     this.gameHistory.getGameHistory(gameId).subscribe({
       next: (dto) => {
         try {
-          if (this.mode() === 'daily') {
+          if (this.modeOn() === 'daily') {
             if (!phase) throw new UnreadableExerciseError('Daily mode requires a phase');
             const exercise = loadSingleExercise(dto, phase, this.sgfParser);
             const topVariants = this.topVariants();
@@ -304,14 +317,14 @@ export class ExercisePageComponent {
   onReset(): void {
     const line = this.line();
     if (!line) return;
-    if (this.mode() === 'daily') this.currentDepth.set(this.depth());
+    if (this.modeOn() === 'daily') this.currentDepth.set(this.depthOn());
     this.state.set(resetExercise(line));
   }
 
   /** Daily mode's "Go deeper +2" (handoff section 7): raises the Continuation Depth by 2 (capped at 10) and reveals that much more of the already-chosen variant. No-op if canGoDeeper() was already false. */
   onGoDeeper(): void {
     const line = this.line();
-    if (!line || this.mode() !== 'daily') return;
+    if (!line || this.modeOn() !== 'daily') return;
 
     const nextDepth = this.nextGoDeeperDepth();
     const next = goDeeper(this.state(), line, 1 + nextDepth);
@@ -342,7 +355,7 @@ export class ExercisePageComponent {
 
   /** Back always goes one level up (handoff section 2): Games in menu mode, Daily Practice Home in daily mode. */
   readonly backToGames = (): void => {
-    this.router.navigate([this.mode() === 'daily' ? '/practice' : '/']);
+    this.router.navigate([this.modeOn() === 'daily' ? '/practice' : '/']);
   };
 
   /**

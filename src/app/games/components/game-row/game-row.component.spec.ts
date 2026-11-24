@@ -121,7 +121,6 @@ describe('GameRowComponent', () => {
 
     expect(fixture.nativeElement.textContent).toContain('No mistakes to practice');
     expect(link()).toBeNull();
-    expect(fixture.nativeElement.querySelector('.kz-game-row-right--no-chevron')).toBeTruthy();
     expect(menuItem()).toBeNull(); // closed until opened
     menuTrigger().click();
     fixture.detectChanges();
@@ -143,14 +142,12 @@ describe('GameRowComponent', () => {
     expect(menuItem()!.textContent?.trim()).toBe('Cancel analysis');
   });
 
-  it('shows a chevron only on a tappable row, with no-chevron padding on the other kind instead', () => {
+  it('shows a chevron only on a tappable row', () => {
     setEntry(entry({ status: 'done' }));
     expect(fixture.nativeElement.querySelector('.kz-game-row-chevron')).toBeTruthy();
-    expect(fixture.nativeElement.querySelector('.kz-game-row-right--no-chevron')).toBeNull();
 
     setEntry(entry({ status: 'waiting' }));
     expect(fixture.nativeElement.querySelector('.kz-game-row-chevron')).toBeNull();
-    expect(fixture.nativeElement.querySelector('.kz-game-row-right--no-chevron')).toBeTruthy();
   });
 
   it('colours "Won" with the won token and "Lost" with the alert token', () => {

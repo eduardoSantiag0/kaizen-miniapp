@@ -1,4 +1,4 @@
-import { Component, computed, input } from '@angular/core';
+import { Component, computed, input, output } from '@angular/core';
 import { StoneDotComponent } from '../../../shared/stone-dot/stone-dot.component';
 import { SessionTrackComponent } from '../../../shared/session-track/session-track.component';
 
@@ -15,6 +15,9 @@ export class ExerciseContextComponent {
   readonly step = input.required<number>();
   readonly totalSteps = input.required<number>();
   readonly showProgress = input(true);
+  /** An explicit, in-page way back — Telegram's own BackButton isn't visible outside a real Telegram client. */
+  readonly showBack = input(false);
+  readonly back = output<void>();
 
   readonly stepLabel = computed(() => `Step ${Math.min(this.step(), this.totalSteps())}/${this.totalSteps()}`);
 }

@@ -183,7 +183,9 @@ export function playVertex(state: ExerciseState, tree: ExerciseTree, vertex: Ver
       lastMove: { vertex, sign: tree.userSign },
       phase: isLastStep || !replyExists ? 'done' : 'reply',
       turnSign: isLastStep || !replyExists ? state.turnSign : tree.opponentSign,
-      hintOn: isLastStep ? false : state.hintOn,
+      // Every correct move turns the hint off — the player asked for it to confirm
+      // this one move, not to stay on for the rest of the line.
+      hintOn: false,
     };
   }
 
@@ -213,7 +215,8 @@ export function playVertex(state: ExerciseState, tree: ExerciseTree, vertex: Ver
     lastMove: { vertex, sign: tree.userSign },
     phase: isLastStep || !replyExists ? 'done' : 'reply',
     turnSign: isLastStep || !replyExists ? state.turnSign : tree.opponentSign,
-    hintOn: isLastStep ? false : state.hintOn,
+    // Every correct move turns the hint off — see the matching comment above.
+    hintOn: false,
   };
 }
 

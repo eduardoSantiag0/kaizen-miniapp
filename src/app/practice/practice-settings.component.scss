@@ -1,14 +1,19 @@
 :host {
-  display: block;
-  position: relative;
-  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh; /* fallback for WebViews without dvh support */
+  min-height: 100dvh; /* excludes the mobile browser/WebView chrome that 100vh counts */
+  min-height: var(--kz-viewport-height); /* Telegram's own stable height when running inside Telegram (SafeAreaService) */
+  max-width: 390px;
+  margin: 0 auto;
+  padding-top: var(--kz-content-safe-top, 0px);
 }
 
 .kz-settings-page {
-  position: relative;
-  z-index: 1;
-  padding: 16px;
-  padding-bottom: 48px;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  padding: 16px 16px 0;
 }
 
 .kz-settings-header {

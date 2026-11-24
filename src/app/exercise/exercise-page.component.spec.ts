@@ -363,6 +363,19 @@ describe('ExercisePageComponent', () => {
       expect(telegram.showBackButton).not.toHaveBeenCalled();
     });
 
+    it('still shows the BackButton (and treats itself as menu mode) when menuMode/mode come back undefined, as withComponentInputBinding does for the routed /game/:gameId usage when no route data names them', () => {
+      const telegram = TestBed.inject(TelegramService);
+      spyOn(telegram, 'showBackButton');
+
+      createFixture();
+      fixture.componentRef.setInput('menuMode', undefined);
+      fixture.componentRef.setInput('mode', undefined);
+      fixture.detectChanges();
+
+      expect(telegram.showBackButton).toHaveBeenCalled();
+      expect(fixture.componentInstance.hasNext()).toBe(false); // menu-mode's own collection walk, not daily's dailyExercise
+    });
+
     it('uses "Back to games" for a single-exercise game, and backToGames navigates on click', fakeAsync(() => {
       createFixture().detectChanges();
       expect(fixture.componentInstance.hasNext()).toBe(false);

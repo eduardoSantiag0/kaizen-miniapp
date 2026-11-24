@@ -211,9 +211,21 @@ describe('exercise state machine', () => {
     state = toggleHint(state);
     state = playVertex(state, twoVariantTree, [4, 2]); // ec, variant 0 -> reply
     state = playOpponentReply(state, twoVariantTree); // -> play, step 2
+    // Playing ec correctly turned hint back off — re-enable it for step 2,
+    // same as the player tapping Hint again for the next move.
+    state = toggleHint(state);
 
     expect(hintVertex(state, twoVariantTree)).toEqual([4, 3]); // ed
     expect(hintVertices(state, twoVariantTree)).toEqual([[4, 3]]);
+  });
+
+  it('turns hint off as soon as a correct move is played, not just once the whole line completes', () => {
+    let state = initExerciseState(twoVariantTree);
+    state = toggleHint(state);
+    expect(state.hintOn).toBe(true);
+
+    state = playVertex(state, twoVariantTree, [4, 2]); // ec, correct first move
+    expect(state.hintOn).toBe(false);
   });
 
   it('toggles the zoom window flag, defaulting to the full board', () => {

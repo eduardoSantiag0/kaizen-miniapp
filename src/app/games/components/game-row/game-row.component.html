@@ -27,7 +27,7 @@
     </p>
   </div>
 
-  <div class="kz-game-row-right" [class.kz-game-row-right--no-chevron]="!tappable()">
+  <div class="kz-game-row-right">
     @if (!pending()) {
       <kz-game-menu class="kz-game-row-menu" [status]="e.status" [opponentName]="e.opponentName" (confirmed)="onActionConfirmed()" />
     }

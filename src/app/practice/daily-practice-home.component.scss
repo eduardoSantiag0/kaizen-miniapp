@@ -1,14 +1,19 @@
 :host {
-  display: block;
-  position: relative;
-  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh; /* fallback for WebViews without dvh support */
+  min-height: 100dvh; /* excludes the mobile browser/WebView chrome that 100vh counts */
+  min-height: var(--kz-viewport-height); /* Telegram's own stable height when running inside Telegram (SafeAreaService) */
+  max-width: 390px;
+  margin: 0 auto;
+  padding-top: var(--kz-content-safe-top, 0px);
 }
 
 .kz-home-page {
-  position: relative;
-  z-index: 1;
-  padding: 16px;
-  padding-bottom: 48px;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  padding: 16px 16px 0;
 }
 
 .kz-home-date-row {
@@ -177,16 +182,20 @@
   font: 600 15px/1 'IBM Plex Sans', sans-serif;
 }
 
+/* Moved right under the title (handoff feedback: was at the bottom of a
+   possibly-long exercise list, below the fold) — a bottom rule separates it
+   from the description/list below instead of a top rule, since it no longer
+   follows another block of content. */
 .kz-home-settings-row {
   display: flex;
   align-items: center;
   gap: 12px;
   width: 100%;
   min-height: 56px;
-  margin-top: 20px;
+  margin-top: 14px;
   padding: 10px 0;
   border: none;
-  border-top: 1px solid var(--kz-rule-list);
+  border-bottom: 1px solid var(--kz-rule-list);
   background: transparent;
   color: inherit;
   text-align: left;
