@@ -500,12 +500,12 @@ describe('ExercisePageComponent', () => {
       expect(emitCount).toBe(1);
     }));
 
-    it('drops Hint and Undo from the persistent Tools row, keeping Zoom and Reset', () => {
+    it('shows the same Tools row as menu mode — Hint, Undo, Zoom and Reset', () => {
       createDailyFixture().detectChanges();
 
       const tools = fixture.nativeElement.querySelector('kz-exercise-tools') as HTMLElement;
       const labels = Array.from(tools.querySelectorAll('button')).map((b) => b.textContent?.trim());
-      expect(labels).toEqual(['Zoom in', 'Reset']);
+      expect(labels).toEqual(['Hint', 'Undo', 'Zoom in', 'Reset']);
     });
 
     it('swaps ExerciseActions for LineCompleteActions once the line is done', fakeAsync(() => {

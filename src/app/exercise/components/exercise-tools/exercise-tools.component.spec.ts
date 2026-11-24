@@ -123,15 +123,6 @@ describe('ExerciseToolsComponent', () => {
     expect(style.whiteSpace).toBe('nowrap');
   });
 
-  it('drops Hint and Undo in daily mode, keeping Zoom and Reset (handoff section 1)', () => {
-    fixture.componentRef.setInput('showHint', false);
-    fixture.componentRef.setInput('showUndo', false);
-    fixture.detectChanges();
-
-    const labels = buttons().map((b) => b.textContent?.trim());
-    expect(labels).toEqual(['Full board', 'Reset']);
-  });
-
   it('emits hintToggle, undo and zoomToggle on their respective buttons', () => {
     let hint = false;
     let undo = false;

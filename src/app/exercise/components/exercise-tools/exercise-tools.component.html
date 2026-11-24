@@ -1,19 +1,15 @@
 <div class="kz-tools">
-  @if (showHint()) {
-    <button
-      type="button"
-      class="kz-tool-btn kz-tool-btn--elevated"
-      [class.kz-tool-btn--on]="hintOn()"
-      [attr.aria-pressed]="hintOn()"
-      (click)="hintToggle.emit()"
-    >
-      Hint
-    </button>
-  }
+  <button
+    type="button"
+    class="kz-tool-btn kz-tool-btn--elevated"
+    [class.kz-tool-btn--on]="hintOn()"
+    [attr.aria-pressed]="hintOn()"
+    (click)="hintToggle.emit()"
+  >
+    Hint
+  </button>
 
-  @if (showUndo()) {
-    <button type="button" class="kz-tool-btn" [disabled]="undoDisabled()" (click)="undo.emit()">Undo</button>
-  }
+  <button type="button" class="kz-tool-btn" [disabled]="undoDisabled()" (click)="undo.emit()">Undo</button>
 
   <!-- Shares Reset's --muted look: Zoom's "utility" tier and Reset's
        "dangerous-at-rest" tier read as one muted look rather than a third variant. -->

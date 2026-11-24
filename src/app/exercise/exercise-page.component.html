@@ -31,8 +31,6 @@
       [zoomedIn]="state().zoomedIn"
       [zoomDisabled]="zoomDisabled()"
       [undoDisabled]="!canUndoState()"
-      [showHint]="mode() === 'menu'"
-      [showUndo]="mode() === 'menu'"
       (hintToggle)="onHintToggle()"
       (reset)="onReset()"
       (zoomToggle)="onZoomToggle()"
