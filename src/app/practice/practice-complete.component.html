@@ -1,0 +1,23 @@
+<kz-paper-background />
+
+<div class="kz-complete-page">
+  <kz-streak-strip class="kz-complete-strip" [days]="last7Days()" />
+
+  <h1 class="kz-complete-title">
+    @if (headlineNumber() !== null) {
+      <span class="kz-complete-title-number">{{ headlineNumber() }}</span>
+    }
+    {{ headlineSuffix() }}
+  </h1>
+
+  <p class="kz-complete-feedback">{{ feedbackLine() }}</p>
+
+  <p class="kz-complete-next">
+    <span class="kz-complete-next-dot" aria-hidden="true"></span>
+    Come back tomorrow to make it <span class="kz-complete-next-number">{{ nextStreakNumber() }}</span>.
+  </p>
+
+  <button type="button" class="kz-complete-done" (click)="done()">Done</button>
+
+  <kz-seigaiha-fill />
+</div>

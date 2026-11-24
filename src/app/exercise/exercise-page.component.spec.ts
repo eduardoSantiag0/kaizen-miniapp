@@ -6,8 +6,10 @@ import { GameHistoryService } from '../data/game-history.service';
 import { TelegramService } from '../core/telegram.service';
 import type { GameHistoryDto } from '../data/game-history.model';
 
-// Setup: AB[cc]AW[gg], user (Black) to move. KataGo's line: ec, fc, ed, fd.
-// The mistake (actually played): fc. A plain distractor: gc.
+// Setup: AB[cc]AW[gg], user (Black) to move. Three candidate variants:
+// ec/fc/ed/fd (2 rounds), fc (1 ply), gc (1 ply) — any of ec/fc/gc as a first
+// move is accepted (real backend data has no "mistake"/"distractor" branches,
+// see exercise-tree.ts).
 // AW[hi][ih] additionally surrounds the corner ii ([8,8]) on both its liberties,
 // so B[ii] is suicide — used only by the illegal-move haptic test below.
 const BRANCHING_SGF =
@@ -73,7 +75,8 @@ describe('ExercisePageComponent', () => {
     const state = fixture.componentInstance.state();
     expect(state.screen).toBe('ready');
     expect(state.phase).toBe('play');
-    expect(state.totalSteps).toBe(2);
+    expect(state.selectedVariant).toBeNull();
+    expect(state.totalSteps).toBe(0); // not known until a variant is picked
   });
 
   it('mounts the board into the DOM once ready', () => {
@@ -161,15 +164,15 @@ describe('ExercisePageComponent', () => {
     expect(host.classList.contains('kz-goban-adapter--locked')).toBe(false);
   }));
 
-  it('flags the specific "you played this in the game" wrong move, and locks the board while it shows', () => {
+  it('flags a move matching no offered variant as "not evaluated", and locks the board while it shows', () => {
     createFixture().detectChanges();
 
-    fixture.componentInstance.onVertexTap([5, 2]); // fc, the mistake
+    fixture.componentInstance.onVertexTap([1, 1]); // bb, not offered by any variant
     fixture.detectChanges();
 
     const state = fixture.componentInstance.state();
     expect(state.phase).toBe('wrong');
-    expect(state.wrongMove?.reason).toBe('mistakeMove');
+    expect(state.wrongMove?.reason).toBe('notEvaluated');
 
     const host = fixture.nativeElement.querySelector('kz-goban-adapter') as HTMLElement;
     expect(host.classList.contains('kz-goban-adapter--locked')).toBe(true);
@@ -268,7 +271,7 @@ describe('ExercisePageComponent', () => {
   it('keeps Tools visible (not hidden) for the wrong phase — Undo/Reset/Hint/Zoom still matter there', () => {
     createFixture().detectChanges();
 
-    fixture.componentInstance.onVertexTap([5, 2]); // fc, the mistake — wrong
+    fixture.componentInstance.onVertexTap([1, 1]); // bb, not offered by any variant — wrong
     fixture.detectChanges();
 
     expect(fixture.componentInstance.state().phase).toBe('wrong');
@@ -431,6 +434,142 @@ describe('ExercisePageComponent', () => {
 
       expect(fixture.componentInstance.state().phase).toBe('done');
       expect(fixture.componentInstance.message().body).toContain('opening, middlegame and endgame');
+    }));
+  });
+
+  describe('daily mode (handoff v4-kaizen-daily-practice section 6)', () => {
+    // Same branch point as BRANCHING_SGF, but the ec variant runs 8 plies
+    // deep (4 rounds) instead of 4 — long enough that completing it at the
+    // default depth (4, i.e. maxPlies 5) still leaves more for Go deeper to
+    // reveal, which BRANCHING_SGF's shorter variant doesn't.
+    const LONG_BRANCHING_SGF =
+      '(;FF[4]SZ[9]AB[cc]AW[gg]PL[B](;B[ec];W[fc];B[ed];W[fd];B[ee];W[fe];B[ef];W[ff])(;B[fc])(;B[gc]))';
+
+    function createDailyFixture(): ComponentFixture<ExercisePageComponent> {
+      fixture = TestBed.createComponent(ExercisePageComponent);
+      fixture.componentRef.setInput('mode', 'daily');
+      fixture.componentRef.setInput('phase', 'middlegame');
+      return fixture;
+    }
+
+    function completeTheLine(): void {
+      fixture.componentInstance.onVertexTap([4, 2]); // ec, correct
+      tick(900); // opponent's reply (fc)
+      fixture.componentInstance.onVertexTap([4, 3]); // ed, correct, final move
+      fixture.detectChanges();
+    }
+
+    it('clamps accepted first moves to topVariants (handoff section 5/7): only the first N stored variants stay accepted', () => {
+      createDailyFixture();
+      fixture.componentRef.setInput('topVariants', 1);
+      fixture.detectChanges();
+
+      fixture.componentInstance.onVertexTap([5, 2]); // fc, the SECOND variant's first move — rejected once only variant 1 (ec) is kept
+      fixture.detectChanges();
+
+      expect(fixture.componentInstance.state().phase).toBe('wrong');
+    });
+
+    it('accepts every stored variant when topVariants is left null (menu mode default)', () => {
+      createDailyFixture().detectChanges();
+
+      fixture.componentInstance.onVertexTap([5, 2]); // fc, the second variant's first move — accepted with no clamp
+      fixture.detectChanges();
+
+      expect(fixture.componentInstance.state().phase).not.toBe('wrong');
+    });
+
+    it('exerciseSolved fires once when the exercise is first solved, not again on later exploration', fakeAsync(() => {
+      createDailyFixture().detectChanges();
+
+      let emitCount = 0;
+      fixture.componentInstance.exerciseSolved.subscribe(() => emitCount++);
+
+      fixture.componentInstance.onVertexTap([1, 1]); // bb, not offered by any variant — wrong
+      fixture.detectChanges();
+      fixture.componentInstance.onUndo();
+      completeTheLine();
+
+      expect(emitCount).toBe(1);
+
+      // Exploring afterward (Try another line) doesn't re-emit — solvedEmitted is already true.
+      fixture.componentInstance.onReset();
+      fixture.componentInstance.onVertexTap([1, 1]);
+      fixture.detectChanges();
+
+      expect(emitCount).toBe(1);
+    }));
+
+    it('drops Hint and Undo from the persistent Tools row, keeping Zoom and Reset', () => {
+      createDailyFixture().detectChanges();
+
+      const tools = fixture.nativeElement.querySelector('kz-exercise-tools') as HTMLElement;
+      const labels = Array.from(tools.querySelectorAll('button')).map((b) => b.textContent?.trim());
+      expect(labels).toEqual(['Zoom in', 'Reset']);
+    });
+
+    it('swaps ExerciseActions for LineCompleteActions once the line is done', fakeAsync(() => {
+      createDailyFixture().detectChanges();
+      expect(fixture.nativeElement.querySelector('kz-line-complete-actions')).toBeNull();
+
+      completeTheLine();
+
+      expect(fixture.nativeElement.querySelector('kz-exercise-actions')).toBeNull();
+      expect(fixture.nativeElement.querySelector('kz-line-complete-actions')).not.toBeNull();
+    }));
+
+    it('Try another line calls onReset', fakeAsync(() => {
+      createDailyFixture().detectChanges();
+      completeTheLine();
+
+      spyOn(fixture.componentInstance, 'onReset').and.callThrough();
+      const buttons: HTMLButtonElement[] = Array.from(fixture.nativeElement.querySelectorAll('button'));
+      buttons.find((b) => b.textContent?.trim() === 'Try another line')!.click();
+
+      expect(fixture.componentInstance.onReset).toHaveBeenCalled();
+    }));
+
+    it('Next exercise fires the dailyNext output', fakeAsync(() => {
+      createDailyFixture().detectChanges();
+      completeTheLine();
+
+      let emitted = false;
+      fixture.componentInstance.dailyNext.subscribe(() => (emitted = true));
+      const buttons: HTMLButtonElement[] = Array.from(fixture.nativeElement.querySelectorAll('button'));
+      buttons.find((b) => b.textContent?.trim() === 'Next exercise')!.click();
+
+      expect(emitted).toBe(true);
+    }));
+
+    it('Go deeper calls onGoDeeper once KataGo has more of the line stored', fakeAsync(() => {
+      stubHistory.dto = { ...stubHistory.dto, middlegameAnalysed: LONG_BRANCHING_SGF };
+      createDailyFixture().detectChanges();
+
+      fixture.componentInstance.onVertexTap([4, 2]); // ec
+      tick(900); // fc
+      fixture.componentInstance.onVertexTap([4, 3]); // ed
+      tick(900); // fd
+      fixture.componentInstance.onVertexTap([4, 4]); // ee, completes totalSteps 3 of 4 available rounds
+      fixture.detectChanges();
+
+      expect(fixture.componentInstance.state().phase).toBe('done');
+      expect(fixture.componentInstance.canGoDeeper()).toBe(true);
+
+      spyOn(fixture.componentInstance, 'onGoDeeper').and.callThrough();
+      const buttons: HTMLButtonElement[] = Array.from(fixture.nativeElement.querySelectorAll('button'));
+      buttons.find((b) => b.textContent?.includes('Go deeper'))!.click();
+
+      expect(fixture.componentInstance.onGoDeeper).toHaveBeenCalled();
+    }));
+
+    it('labels the primary button "Finish practice" when isLastExercise is set', fakeAsync(() => {
+      createDailyFixture();
+      fixture.componentRef.setInput('isLastExercise', true);
+      fixture.detectChanges();
+      completeTheLine();
+
+      const buttons: HTMLButtonElement[] = Array.from(fixture.nativeElement.querySelectorAll('button'));
+      expect(buttons.some((b) => b.textContent?.trim() === 'Finish practice')).toBe(true);
     }));
   });
 

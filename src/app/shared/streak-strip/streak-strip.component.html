@@ -1,0 +1,22 @@
+<div class="kz-streak-strip" role="img" [attr.aria-label]="ariaLabel()">
+  <div class="kz-streak-strip-board">
+    @for (day of strippedDays(); track $index) {
+      <div class="kz-streak-strip-cell">
+        @if (day.practiced) {
+          <span class="kz-streak-strip-stone" [class.kz-streak-strip-stone--today]="day.isToday">
+            @if (day.isToday) {
+              <span class="kz-streak-strip-dot"></span>
+            }
+          </span>
+        }
+      </div>
+    }
+  </div>
+  <div class="kz-streak-strip-labels">
+    @for (day of strippedDays(); track $index) {
+      <span class="kz-streak-strip-label" [class.kz-streak-strip-label--today]="day.isToday">
+        {{ day.isToday ? 'Today' : day.weekdayLetter }}
+      </span>
+    }
+  </div>
+</div>

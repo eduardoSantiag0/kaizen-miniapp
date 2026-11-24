@@ -9,14 +9,6 @@
   <p class="kz-meta-line">{{ metaText() }}</p>
 
   @if (showProgress()) {
-    <div class="kz-progress" aria-hidden="true">
-      @for (node of nodes(); track $index) {
-        <span class="kz-progress-node" [class]="'kz-progress-node--' + node"></span>
-        @if (!$last) {
-          <span class="kz-progress-line" [class.kz-progress-line--ahead]="node !== 'done'"></span>
-        }
-      }
-      <span class="kz-step-label">{{ stepLabel() }}</span>
-    </div>
+    <kz-session-track class="kz-progress" [total]="totalSteps()" [current]="step()" [label]="stepLabel()" />
   }
 </div>

@@ -17,6 +17,10 @@ export class ExerciseToolsComponent implements OnDestroy {
   readonly zoomDisabled = input(false);
   /** Disabled when there's no move to undo yet (fresh exercise, or mid opponent-reply). */
   readonly undoDisabled = input(false);
+  /** Daily mode (handoff section 6): Hint would show the line before it's solved, so it's dropped entirely rather than just disabled. */
+  readonly showHint = input(true);
+  /** Daily mode (handoff section 1): dropped from this persistent row — ExerciseActionsComponent's own "Try again" (wrong phase) still calls the same undo(), unaffected. */
+  readonly showUndo = input(true);
 
   readonly hintToggle = output<void>();
   readonly reset = output<void>();

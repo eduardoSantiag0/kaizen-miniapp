@@ -7,20 +7,26 @@ export interface ExercisePly {
   vertex: Vertex;
 }
 
-export interface ExerciseLine {
+export interface ExerciseVariant {
+  /** One candidate branch's full move sequence, alternating starting with the user's sign, capped at 9 plies (5 user moves + 4 replies). */
+  plies: ExercisePly[];
+}
+
+export interface ExerciseTree {
   boardSize: number;
   setupBoard: GoBoard;
   userSign: 1 | -1;
   opponentSign: 1 | -1;
-  /** The move actually played in the game at this juncture — display-only, and the one wrong answer with its own copy. */
-  mistakeVertex: Vertex | null;
   /** The real game's own last move before this juncture (the move leading into setupBoard's position) — display-only, marked with the same dot as an in-exercise last move. Null when the branch point sits directly at the SGF root, with no move chain before it (every games_test/ fixture today). */
   previousMove: ExercisePly | null;
-  /** KataGo's recommended continuation, alternating starting with the user's sign, capped at 9 plies (5 user moves + 4 replies). */
-  kataGoLine: ExercisePly[];
-  /** First moves of the remaining sibling branches: other plausible-but-wrong answers, step 1 only. */
-  distractorVertices: Vertex[];
-  totalSteps: number;
+  /**
+   * Every sibling at the branch point, ranked best-first — KatagoAssembler
+   * (kaizan-companion) already sorts KataGo's own top candidates by rank
+   * before persisting them as SGF variation branches. Real backend data has
+   * no "wrong answer"/"mistake" branch at all: every variant here is one of
+   * KataGo's own recommendations.
+   */
+  variants: ExerciseVariant[];
 }
 
 export class UnreadableExerciseError extends Error {
@@ -29,20 +35,14 @@ export class UnreadableExerciseError extends Error {
   }
 }
 
-const MAX_PLIES = 9;
+// 1 initial move + the max Continuation Depth (M=10, handoff section 5/7) —
+// Daily Practice's "Go deeper" needs real data up to this depth to ever
+// reach its own stated ceiling. See daily-practice-endpoint-proposal.md
+// section 1.5 for the matching backend-side requirement (KatagoAssembler's
+// VARIATION_MOVES_LIMIT must store at least this many plies per variant).
+const MAX_PLIES = 11;
 
-/**
- * Mock-data convention (games_test/ only — there is no backend field for this yet):
- * the branch point is the first node with more than one child, walking down from
- * the tree root. Its siblings are ordered:
- *   [0]      KataGo's recommended line — correct for every step.
- *   [1]      the move actually played in the game — the mistake itself. Wrong,
- *            and only this one gets the "that's the move you played" copy.
- *   [2..]    other legal sibling moves — generic "not KataGo's move" wrong answers.
- * This ordering is specific to the placeholder SGFs under games_test/ and must
- * not be treated as something the real GameHistoryDto will provide.
- */
-export function buildExerciseLine(root: SgfNode): ExerciseLine {
+export function buildExerciseTree(root: SgfNode): ExerciseTree {
   const boardSize = Number(root.data['SZ']?.[0] ?? 19);
   const { branchNode, precedingMoves } = walkToBranchPoint(root);
   if (!branchNode || branchNode.children.length < 2) {
@@ -61,25 +61,17 @@ export function buildExerciseLine(root: SgfNode): ExerciseLine {
   const userSign: 1 | -1 = root.data['PL']?.[0] === 'W' ? WHITE : BLACK;
   const opponentSign: 1 | -1 = userSign === BLACK ? WHITE : BLACK;
 
-  const [kataGoChild, mistakeChild, ...distractorChildren] = branchNode.children;
-
-  const kataGoLine = walkMainLine(kataGoChild);
-  const mistakeMove = mistakeChild ? moveOf(mistakeChild) : null;
-  const distractorVertices = distractorChildren
-    .map((child) => moveOf(child))
-    .filter((move): move is NonNullable<typeof move> => move !== null)
-    .map((move) => move.vertex);
+  const variants: ExerciseVariant[] = branchNode.children
+    .map((child) => ({ plies: walkMainLine(child) }))
+    .filter((variant) => variant.plies.length > 0);
 
   return {
     boardSize,
     setupBoard,
     userSign,
     opponentSign,
-    mistakeVertex: mistakeMove?.vertex ?? null,
     previousMove,
-    kataGoLine,
-    distractorVertices,
-    totalSteps: Math.min(5, Math.ceil(kataGoLine.length / 2)),
+    variants,
   };
 }
 

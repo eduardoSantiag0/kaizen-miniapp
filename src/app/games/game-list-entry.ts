@@ -1,7 +1,7 @@
 import type { SgfNode } from '../sgf/sgf-node';
 import { BLACK, moveOf, WHITE } from '../sgf/sgf-node';
 import { SgfParserService } from '../sgf/sgf-parser.service';
-import { UnreadableExerciseError, buildExerciseLine } from '../exercise/exercise-line';
+import { UnreadableExerciseError, buildExerciseTree } from '../exercise/exercise-tree';
 import type { GameHistoryDto, GamePhase } from '../data/game-history.model';
 
 type PhaseKey = 'openingAnalysed' | 'middlegameAnalysed' | 'endgameAnalysed';
@@ -122,7 +122,7 @@ export function deriveGameListEntry(dto: GameHistoryDto, sgfParser: SgfParserSer
     }
 
     try {
-      buildExerciseLine(phaseRoot);
+      buildExerciseTree(phaseRoot);
       status = 'done';
       mistakePhases.push(phase);
       if (mistakeMoveNumber === null) mistakeMoveNumber = branchPointDepth(phaseRoot);
@@ -174,7 +174,7 @@ function countMoves(root: SgfNode): number {
   return count;
 }
 
-/** 1-based move number of the first node with more than one child (buildExerciseLine's branch point). */
+/** 1-based move number of the first node with more than one child (buildExerciseTree's branch point). */
 function branchPointDepth(root: SgfNode): number {
   let count = 0;
   let node: SgfNode | undefined = root;

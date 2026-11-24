@@ -1,0 +1,97 @@
+<kz-paper-background />
+
+<div class="kz-home-page">
+  @switch (screen()) {
+    @case ('loading') {
+      <div class="kz-home-skeleton" role="status" aria-label="Loading today's practice">
+        <div class="kz-home-skeleton-track"></div>
+        @for (i of [0, 1, 2]; track i) {
+          <div class="kz-home-skeleton-row"></div>
+        }
+        <button type="button" class="kz-home-primary" disabled>Loading…</button>
+      </div>
+    }
+    @case ('error') {
+      <div class="kz-home-state">
+        <p class="kz-home-state-title">Couldn't load today's practice</p>
+        <p class="kz-home-state-body">Check your connection and try again. Your progress is saved.</p>
+        <button type="button" class="kz-home-primary" (click)="retry()">Try again</button>
+      </div>
+    }
+    @case ('ready') {
+      <div class="kz-home-date-row">
+        <p class="kz-home-date">{{ dateLabel() }}</p>
+        @if (currentStreak() > 0) {
+          <kz-streak-badge [days]="currentStreak()" />
+        }
+      </div>
+      <h1 class="kz-home-title">Daily practice</h1>
+
+      @if (isEmpty()) {
+        <div class="kz-home-state">
+          <p class="kz-home-state-title">No exercises yet</p>
+          <p class="kz-home-state-body">
+            Kaizen builds your practice from games KataGo has analyzed. Export a game, and once it's analyzed your
+            exercises appear here.
+          </p>
+          <button type="button" class="kz-home-primary" (click)="backToGames()">Go to games</button>
+        </div>
+      } @else {
+        <p class="kz-home-description">Positions from your own games, where KataGo found a better move.</p>
+
+        <kz-session-track class="kz-home-track" [total]="totalCount()" [current]="trackCurrent()" [nodeSize]="14" [label]="trackLabel()" />
+
+        <ul class="kz-home-list">
+          @for (exercise of exercises(); track exercise.id) {
+            <li class="kz-home-row" [class.kz-home-row--solved]="rowStatus(exercise) === 'solved'">
+              <div class="kz-home-row-thumb" [style.--kz-thumb-board-size]="exercise.boardSize" aria-hidden="true">
+                <span class="kz-home-row-stone" [class.kz-home-row-stone--white]="exercise.userSign === -1"></span>
+              </div>
+              <div class="kz-home-row-text">
+                <p class="kz-home-row-name-line">
+                  vs <strong>{{ exercise.opponentName }}</strong> {{ exercise.opponentRank }}
+                </p>
+                <p class="kz-home-row-meta">{{ rowMetaText(exercise) }}</p>
+              </div>
+              <div class="kz-home-row-status">
+                @if (rowStatus(exercise) === 'solved') {
+                  <span class="kz-home-row-solved">✓ Solved</span>
+                } @else if (rowStatus(exercise) === 'next') {
+                  <span class="kz-home-row-next">Up next</span>
+                }
+              </div>
+            </li>
+          }
+        </ul>
+
+        @if (!isComplete()) {
+          <button type="button" class="kz-home-primary" (click)="startOrContinue()">{{ primaryLabel() }}</button>
+          <p class="kz-home-primary-note">{{ primaryNote() }}</p>
+        } @else {
+          <div class="kz-home-complete">
+            <p class="kz-home-complete-title">Practice complete</p>
+            <p class="kz-home-complete-body">
+              All {{ totalCount() }} exercises done. Your next practice comes from your next analyzed games.
+            </p>
+            <button type="button" class="kz-home-review" (click)="reviewExercises()">Review exercises</button>
+          </div>
+        }
+
+        <button type="button" class="kz-home-settings-row" (click)="openSettings()">
+          <svg class="kz-home-settings-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+            <path d="M4 6h8M14 6h2M4 14h2M8 14h8M4 10h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+          </svg>
+          <span class="kz-home-settings-text">
+            <span class="kz-home-settings-title">Practice settings</span>
+            <span class="kz-home-settings-summary">{{ settingsSummary() }}</span>
+          </span>
+          <svg class="kz-home-settings-chevron" width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+            <path d="M7 4l5 5-5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </button>
+      }
+    }
+  }
+
+  <kz-seigaiha-fill />
+</div>

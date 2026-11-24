@@ -3,8 +3,40 @@ import { provideRouter } from '@angular/router';
 import { of, Subject } from 'rxjs';
 import { GamesPageComponent } from './games-page.component';
 import { GameHistoryService } from '../data/game-history.service';
+import { PracticeService } from '../data/practice.service';
 import { TelegramService } from '../core/telegram.service';
 import type { GameHistoryDto } from '../data/game-history.model';
+
+/** The Daily Practice card (RF03.2) is incidental to these tests — an empty session is enough to satisfy it. */
+class StubPracticeService extends PracticeService {
+  override getTodaySession() {
+    return of(null);
+  }
+
+  override startTodaySession() {
+    return of({ date: '2026-01-01', exercises: [], completed: false });
+  }
+
+  override recordResult() {
+    return of(undefined);
+  }
+
+  override getPreferences() {
+    return of({ topVariants: 3, continuationDepth: 6 });
+  }
+
+  override setPreferences() {
+    return of(undefined);
+  }
+
+  override saveProgress() {
+    return of(undefined);
+  }
+
+  override getStreak() {
+    return of({ currentStreak: 0, last7Days: [false, false, false, false, false, false, false] });
+  }
+}
 
 // Computed relative to the real current date, not hardcoded — isToday() (used
 // by GamesPageComponent's grouping) compares a DT[] value against `new Date()`
@@ -58,7 +90,11 @@ describe('GamesPageComponent', () => {
     delete window.Telegram;
     TestBed.configureTestingModule({
       imports: [GamesPageComponent],
-      providers: [provideRouter([]), { provide: GameHistoryService, useClass: StubGameHistoryService }],
+      providers: [
+        provideRouter([]),
+        { provide: GameHistoryService, useClass: StubGameHistoryService },
+        { provide: PracticeService, useClass: StubPracticeService },
+      ],
     });
     stub = TestBed.inject(GameHistoryService) as unknown as StubGameHistoryService;
   });

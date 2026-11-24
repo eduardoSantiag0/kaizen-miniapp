@@ -1,0 +1,63 @@
+<kz-paper-background />
+
+<div class="kz-practice-page">
+  <div class="kz-practice-content">
+    @switch (screen()) {
+      @case ('loading') {
+        <div class="kz-practice-state" role="status" aria-label="Loading practice">One moment…</div>
+      }
+      @case ('error') {
+        <div class="kz-practice-state">
+          <p class="kz-practice-state-title">Kaizen didn't answer</p>
+          <p class="kz-practice-state-body">Check your connection and try again.</p>
+          <button type="button" class="kz-practice-retry" (click)="retry()">Try again</button>
+        </div>
+      }
+      @case ('sgfError') {
+        <div class="kz-practice-state">
+          <p class="kz-practice-state-title">Couldn't read this exercise</p>
+          <p class="kz-practice-state-body">Its game record is damaged.</p>
+          @if (hasNext()) {
+            <button type="button" class="kz-practice-retry" (click)="onNextExercise()">Skip to next exercise</button>
+          } @else {
+            <button type="button" class="kz-practice-retry" (click)="backToHome()">Back to Home</button>
+          }
+        </div>
+      }
+      @case ('summary') {
+        <div class="kz-practice-summary">
+          <h1 class="kz-practice-summary-title">Practice Complete</h1>
+          <p class="kz-practice-summary-line">{{ summary().completed }} exercises completed</p>
+          <button type="button" class="kz-practice-summary-action" (click)="backToHome()">Return to Home</button>
+        </div>
+      }
+      @case ('ready') {
+        @if (tree(); as currentTree) {
+          <kz-goban-view [state]="state()" [line]="currentTree" (vertexTap)="onVertexTap($event)" />
+
+          @if (state().phase === 'done') {
+            <div class="kz-practice-done-actions">
+              <button type="button" class="kz-practice-action kz-practice-action--primary" (click)="onNextExercise()">
+                {{ hasNext() ? 'Next Exercise' : 'Finish' }}
+              </button>
+              <button type="button" class="kz-practice-action" (click)="onTryAnotherLine()">Try Another Line</button>
+              <button type="button" class="kz-practice-action" (click)="onGoDeeper()">Go Deeper</button>
+            </div>
+          } @else {
+            <kz-exercise-tools
+              [hintOn]="state().hintOn"
+              [zoomedIn]="state().zoomedIn"
+              [undoDisabled]="!canUndoState()"
+              (hintToggle)="onHintToggle()"
+              (reset)="onTryAnotherLine()"
+              (zoomToggle)="onZoomToggle()"
+              (undo)="onUndo()"
+            />
+          }
+        }
+      }
+    }
+  </div>
+
+  <kz-seigaiha-fill />
+</div>

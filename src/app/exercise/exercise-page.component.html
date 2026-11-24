@@ -31,6 +31,8 @@
       [zoomedIn]="state().zoomedIn"
       [zoomDisabled]="zoomDisabled()"
       [undoDisabled]="!canUndoState()"
+      [showHint]="mode() === 'menu'"
+      [showUndo]="mode() === 'menu'"
       (hintToggle)="onHintToggle()"
       (reset)="onReset()"
       (zoomToggle)="onZoomToggle()"
@@ -45,15 +47,29 @@
     />
   }
 
-  <kz-exercise-actions
-    [actions]="actions()"
-    [correctSecondaryLabel]="correctSecondaryLabel()"
-    (tryAgain)="onUndo()"
-    (playAgain)="onReset()"
-    (backToGames)="backToGames()"
-    (doneSecondary)="onDoneSecondary()"
-    (retryLoad)="onRetryLoad()"
-  />
+  <!-- Daily mode hands the 'correct' kind off to LineCompleteActions (Try
+       another line / Go deeper / Next exercise — handoff section 6) instead
+       of ExerciseActions' plain Play again/Back to games pair; every other
+       kind (tryAgain, loading, error screens) is shared by both modes. -->
+  @if (mode() === 'daily' && actions().kind === 'correct') {
+    <kz-line-complete-actions
+      [isLastExercise]="isLastExercise()"
+      [goDeeperEnabled]="canGoDeeper()"
+      (tryAnotherLine)="onReset()"
+      (goDeeper)="onGoDeeper()"
+      (next)="onDailyNext()"
+    />
+  } @else {
+    <kz-exercise-actions
+      [actions]="actions()"
+      [correctSecondaryLabel]="correctSecondaryLabel()"
+      (tryAgain)="onUndo()"
+      (playAgain)="onReset()"
+      (backToGames)="backToGames()"
+      (doneSecondary)="onDoneSecondary()"
+      (retryLoad)="onRetryLoad()"
+    />
+  }
 
   <kz-seigaiha-fill />
 </div>

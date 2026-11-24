@@ -1,0 +1,67 @@
+:host {
+  display: block;
+  position: relative;
+  min-height: 100vh;
+}
+
+.kz-complete-page {
+  position: relative;
+  z-index: 1;
+  padding: 16px;
+  padding-bottom: 48px;
+  padding-top: 32px;
+}
+
+.kz-complete-strip {
+  margin-bottom: 20px;
+}
+
+.kz-complete-title {
+  margin: 0;
+  font: 600 28px/34px 'IBM Plex Sans', sans-serif;
+  color: var(--kz-ink);
+}
+
+.kz-complete-title-number {
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 500;
+}
+
+.kz-complete-feedback {
+  margin: 8px 0 0;
+  font: 400 15px/21px 'IBM Plex Sans', sans-serif;
+  color: var(--kz-hint);
+}
+
+.kz-complete-next {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 20px 0 0;
+  font: 400 14px/20px 'IBM Plex Sans', sans-serif;
+  color: var(--kz-ink);
+}
+
+.kz-complete-next-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px dashed var(--kz-hint);
+  flex: none;
+}
+
+.kz-complete-next-number {
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+.kz-complete-done {
+  display: block;
+  width: 100%;
+  height: 52px;
+  margin-top: 28px;
+  border: none;
+  border-radius: 3px;
+  background: var(--kz-primary);
+  color: var(--kz-on-primary);
+  font: 700 17px/1 'IBM Plex Sans', sans-serif;
+}

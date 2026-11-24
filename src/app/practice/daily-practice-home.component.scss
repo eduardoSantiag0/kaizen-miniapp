@@ -1,0 +1,256 @@
+:host {
+  display: block;
+  position: relative;
+  min-height: 100vh;
+}
+
+.kz-home-page {
+  position: relative;
+  z-index: 1;
+  padding: 16px;
+  padding-bottom: 48px;
+}
+
+.kz-home-date-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.kz-home-date {
+  margin: 0;
+  font: 400 13px/18px 'IBM Plex Sans', sans-serif;
+  color: var(--kz-hint);
+}
+
+.kz-home-title {
+  margin: 2px 0 0;
+  font: 600 26px/32px 'IBM Plex Sans', sans-serif;
+  color: var(--kz-ink);
+}
+
+.kz-home-description {
+  margin: 6px 0 0;
+  font: 400 14px/20px 'IBM Plex Sans', sans-serif;
+  color: var(--kz-hint);
+}
+
+.kz-home-track {
+  margin-top: 18px;
+}
+
+.kz-home-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  margin-top: 8px;
+}
+
+.kz-home-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 12px 0;
+  border-top: 1px solid var(--kz-rule-list);
+
+  &:first-child {
+    border-top: none;
+  }
+
+  &--solved {
+    opacity: 0.6;
+  }
+}
+
+/* Same placeholder pattern as GameRow's own thumbnail (games/components/game-row) —
+   a 9×9-ish board-size grid with the user's corner stone, since there's no
+   real "position" field yet (handoff section 8/9 limitation). */
+.kz-home-row-thumb {
+  flex: 0 0 auto;
+  position: relative;
+  width: 56px;
+  height: 56px;
+  border-radius: 3px;
+  background-color: #dcae5e;
+  background-image:
+    repeating-linear-gradient(to right, rgba(28, 22, 12, 0.55) 0 1px, transparent 1px 100%),
+    repeating-linear-gradient(to bottom, rgba(28, 22, 12, 0.55) 0 1px, transparent 1px 100%);
+  background-size: calc(56px / var(--kz-thumb-board-size)) calc(56px / var(--kz-thumb-board-size));
+}
+
+.kz-home-row-stone {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: calc(56px / var(--kz-thumb-board-size) - 2px);
+  height: calc(56px / var(--kz-thumb-board-size) - 2px);
+  border-radius: 50%;
+  background: #1e1d1f;
+
+  &--white {
+    background: #e0d3b8;
+  }
+}
+
+.kz-home-row-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.kz-home-row-name-line {
+  margin: 0;
+  font: 400 15px/20px 'IBM Plex Sans', sans-serif;
+  color: var(--kz-ink);
+}
+
+.kz-home-row-meta {
+  margin: 2px 0 0;
+  font: 400 13px/18px 'IBM Plex Sans', sans-serif;
+  color: var(--kz-hint);
+}
+
+.kz-home-row-status {
+  flex: 0 0 auto;
+  font: 600 13px/18px 'IBM Plex Sans', sans-serif;
+}
+
+.kz-home-row-solved {
+  color: var(--kz-ink);
+}
+
+.kz-home-row-next {
+  color: var(--kz-primary);
+}
+
+.kz-home-primary {
+  display: block;
+  width: 100%;
+  height: 52px;
+  margin-top: 14px;
+  border: none;
+  border-radius: 3px;
+  background: var(--kz-primary);
+  color: var(--kz-on-primary);
+  font: 700 17px/1 'IBM Plex Sans', sans-serif;
+
+  &:disabled {
+    opacity: 0.6;
+  }
+}
+
+.kz-home-primary-note {
+  margin: 8px 0 0;
+  text-align: center;
+  font: 400 13px/18px 'IBM Plex Sans', sans-serif;
+  color: var(--kz-hint);
+}
+
+.kz-home-complete {
+  margin-top: 14px;
+  text-align: center;
+}
+
+.kz-home-complete-title {
+  margin: 0;
+  font: 600 18px/24px 'IBM Plex Sans', sans-serif;
+  color: var(--kz-ink);
+}
+
+.kz-home-complete-body {
+  margin: 4px 0 0;
+  font: 400 14px/20px 'IBM Plex Sans', sans-serif;
+  color: var(--kz-hint);
+}
+
+.kz-home-review {
+  display: block;
+  width: 100%;
+  height: 44px;
+  margin-top: 14px;
+  border: none;
+  border-radius: 3px;
+  background: var(--kz-bar-bg);
+  box-shadow: inset 0 0 0 1px var(--kz-bar-edge);
+  color: var(--kz-ink);
+  font: 600 15px/1 'IBM Plex Sans', sans-serif;
+}
+
+.kz-home-settings-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  margin-top: 20px;
+  padding: 10px 0;
+  border: none;
+  border-top: 1px solid var(--kz-rule-list);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
+.kz-home-settings-icon {
+  flex: 0 0 auto;
+  color: var(--kz-hint);
+}
+
+.kz-home-settings-text {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.kz-home-settings-title {
+  font: 600 15px/20px 'IBM Plex Sans', sans-serif;
+  color: var(--kz-ink);
+}
+
+.kz-home-settings-summary {
+  font: 400 13px/18px 'IBM Plex Sans', sans-serif;
+  color: var(--kz-hint);
+}
+
+.kz-home-settings-chevron {
+  flex: 0 0 auto;
+  color: var(--kz-hint);
+}
+
+.kz-home-state {
+  padding-top: 48px;
+  text-align: center;
+}
+
+.kz-home-state-title {
+  margin: 0;
+  font: 600 17px/22px 'IBM Plex Sans', sans-serif;
+  color: var(--kz-ink);
+}
+
+.kz-home-state-body {
+  margin: 6px 0 0;
+  font: 400 14px/20px 'IBM Plex Sans', sans-serif;
+  color: var(--kz-hint);
+}
+
+.kz-home-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.kz-home-skeleton-track,
+.kz-home-skeleton-row {
+  height: 14px;
+  border-radius: 7px;
+  background: var(--kz-skeleton);
+}
+
+.kz-home-skeleton-row {
+  height: 56px;
+  border-radius: 3px;
+}

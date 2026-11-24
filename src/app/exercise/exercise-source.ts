@@ -1,11 +1,11 @@
 import type GameTree from '@sabaki/immutable-gametree';
 import type { GameHistoryDto, GamePhase } from '../data/game-history.model';
 import { SgfParserService } from '../sgf/sgf-parser.service';
-import { buildExerciseLine, UnreadableExerciseError, type ExerciseLine } from './exercise-line';
+import { buildExerciseTree, UnreadableExerciseError, type ExerciseTree } from './exercise-tree';
 
 export interface LoadedExercise {
   phase: GamePhase;
-  line: ExerciseLine;
+  line: ExerciseTree;
   /** Read straight from the SGF's own PB/PW/BR/WR — not a DTO field. Always Black/White, regardless of which color the user is (which can differ per phase of the same game), so the meta line's name order stays stable across exercises. */
   blackLabel: string;
   whiteLabel: string;
@@ -38,7 +38,7 @@ export function loadExerciseCollection(dto: GameHistoryDto, sgfParser: SgfParser
 
     try {
       const tree = sgfParser.parse(sgf);
-      const line = buildExerciseLine(tree.root);
+      const line = buildExerciseTree(tree.root);
       results.push({ phase, line, ...gameInfo(tree) });
     } catch (error) {
       lastError = error;
@@ -50,6 +50,21 @@ export function loadExerciseCollection(dto: GameHistoryDto, sgfParser: SgfParser
   }
 
   return results;
+}
+
+/**
+ * Daily Practice mode: loads exactly the one phase the session already
+ * knows about — no "try all 3, keep the first that parses" heuristic,
+ * since there's a real exercise reference (gameId + phase) driving this,
+ * not a bare gameId.
+ */
+export function loadSingleExercise(dto: GameHistoryDto, phase: GamePhase, sgfParser: SgfParserService): LoadedExercise {
+  const sgf = dto[phaseKey(phase)];
+  if (!sgf) throw new UnreadableExerciseError(`No SGF for phase "${phase}"`);
+
+  const tree = sgfParser.parse(sgf);
+  const line = buildExerciseTree(tree.root);
+  return { phase, line, ...gameInfo(tree) };
 }
 
 function phaseKey(phase: GamePhase): keyof GameHistoryDto {

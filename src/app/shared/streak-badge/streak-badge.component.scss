@@ -1,0 +1,19 @@
+:host {
+  display: inline-flex;
+}
+
+.kz-streak-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: 500 13px/18px 'IBM Plex Sans', sans-serif;
+  color: var(--kz-ink);
+}
+
+.kz-streak-stone {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--kz-ink);
+  flex: none;
+}

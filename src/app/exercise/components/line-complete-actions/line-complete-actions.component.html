@@ -1,0 +1,20 @@
+<div class="kz-line-complete">
+  <div class="kz-line-complete-row">
+    <button type="button" class="kz-line-complete-secondary" (click)="tryAnotherLine.emit()">
+      Try another line
+    </button>
+    <button
+      type="button"
+      class="kz-line-complete-secondary"
+      [disabled]="!goDeeperEnabled()"
+      [attr.aria-label]="goDeeperEnabled() ? 'Go deeper: +2 more moves' : 'Go deeper: no further analysis on this line'"
+      (click)="goDeeper.emit()"
+    >
+      Go deeper +2
+    </button>
+  </div>
+
+  <button type="button" class="kz-line-complete-primary" (click)="next.emit()">
+    {{ isLastExercise() ? 'Finish practice' : 'Next exercise' }}
+  </button>
+</div>

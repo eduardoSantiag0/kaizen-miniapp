@@ -1,0 +1,62 @@
+.kz-practice-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.kz-practice-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.kz-practice-card-title {
+  margin: 0;
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.kz-practice-card-body {
+  margin: 0;
+  font-size: 13px;
+  opacity: 0.75;
+}
+
+.kz-practice-card-action {
+  flex-shrink: 0;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  background: currentColor;
+  color: inherit;
+  opacity: 0.9;
+}
+
+.kz-practice-card--loading {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+
+.kz-practice-card-skeleton-line {
+  height: 12px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.kz-practice-card-skeleton-line--wide {
+  width: 60%;
+}
+
+.kz-practice-card-skeleton-line--narrow {
+  width: 35%;
+}

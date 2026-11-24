@@ -29,7 +29,7 @@ export class MockGameHistoryService extends GameHistoryService {
 
   /**
    * Synthetic — invented for list-UI testing, not derived from any real game
-   * (same documented-mock-only convention as exercise-line.ts's branch-order
+   * (same documented-mock-only convention as exercise-tree.ts's branch-order
    * assumption). There's only one real fixture triplet, which can't alone
    * exercise GamesPage's Today/Earlier grouping, all three filter tabs, every
    * analysis status, or both a won and a lost outcome — these three rows

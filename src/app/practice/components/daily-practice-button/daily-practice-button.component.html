@@ -1,0 +1,14 @@
+@if (screen() === 'ready' && !isEmpty()) {
+  <a class="kz-daily-btn" routerLink="/practice" [attr.aria-label]="ariaLabel()">
+    <span class="kz-daily-btn-track">
+      <kz-session-track [total]="totalCount()" [current]="trackCurrent()" [nodeSize]="10" />
+    </span>
+    <span class="kz-daily-btn-text">
+      <span class="kz-daily-btn-title">Daily practice</span>
+      <span class="kz-daily-btn-subtitle">{{ subtitle() }}</span>
+    </span>
+    <svg class="kz-daily-btn-chevron" width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+      <path d="M7 4l5 5-5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+    </svg>
+  </a>
+}

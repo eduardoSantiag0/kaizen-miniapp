@@ -1,0 +1,79 @@
+<kz-paper-background />
+
+<div class="kz-settings-page">
+  <header class="kz-settings-header">
+    <h1 class="kz-settings-title">Practice settings</h1>
+    <p class="kz-settings-note">Changes save automatically and apply from your next exercise.</p>
+  </header>
+
+  <section class="kz-setting">
+    <div class="kz-setting-head">
+      <h2 class="kz-setting-title" id="kzTopVariantsTitle">Accepted first moves</h2>
+      <span class="kz-setting-value">{{ topVariants() }}</span>
+    </div>
+    <p class="kz-setting-sentence">
+      How many of KataGo's best first moves count as correct. Each one opens its own line to explore.
+    </p>
+
+    <input
+      type="range"
+      class="kz-setting-slider"
+      min="1"
+      max="5"
+      step="1"
+      [value]="topVariants()"
+      (input)="onTopVariantsInput($any($event.target).value)"
+      aria-labelledby="kzTopVariantsTitle"
+      [attr.aria-valuetext]="topVariantsValueText()"
+    />
+    <div class="kz-setting-slider-labels" aria-hidden="true">
+      <span>1</span>
+      <span>5</span>
+    </div>
+
+    <div class="kz-candidate-example" aria-hidden="true">
+      @for (letter of candidateLetters; let i = $index; track letter) {
+        <span class="kz-candidate-point" [class.kz-candidate-point--accepted]="candidateAccepted()[i]">{{ letter }}</span>
+      }
+    </div>
+    <p class="kz-setting-caption">{{ topVariantsCaption() }}</p>
+  </section>
+
+  <section class="kz-setting">
+    <div class="kz-setting-head">
+      <h2 class="kz-setting-title" id="kzDepthTitle">Moves after the first</h2>
+      <span class="kz-setting-value">{{ continuationDepth() }}</span>
+    </div>
+    <p class="kz-setting-sentence">
+      How far each line goes after your first move, counting your moves and your opponent's replies.
+    </p>
+
+    <input
+      type="range"
+      class="kz-setting-slider"
+      min="2"
+      max="10"
+      step="1"
+      [value]="continuationDepth()"
+      (input)="onDepthInput($any($event.target).value)"
+      aria-labelledby="kzDepthTitle"
+      [attr.aria-valuetext]="depthValueText()"
+    />
+    <div class="kz-setting-slider-labels" aria-hidden="true">
+      <span>2</span>
+      <span>10</span>
+    </div>
+
+    <div class="kz-depth-example" aria-hidden="true">
+      @for (sign of depthStones(); let i = $index; track i) {
+        <span class="kz-depth-stone" [class.kz-depth-stone--white]="sign === -1" [class.kz-depth-stone--first]="i === 0">{{
+          i + 1
+        }}</span>
+      }
+    </div>
+    <p class="kz-setting-caption">{{ depthCaption() }}</p>
+    <p class="kz-setting-note">After a line, Go deeper adds 2 more moves at a time, up to 10, wherever KataGo analyzed further.</p>
+  </section>
+
+  <kz-seigaiha-fill />
+</div>

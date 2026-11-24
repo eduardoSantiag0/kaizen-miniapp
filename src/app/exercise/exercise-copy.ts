@@ -1,4 +1,4 @@
-import type { ExerciseLine } from './exercise-line';
+import type { ExerciseTree } from './exercise-tree';
 import type { ExerciseState } from './exercise-state';
 
 export type MessageTone = 'neutral' | 'pine' | 'shu';
@@ -49,7 +49,7 @@ export function messageForScreen(screen: ExerciseState['screen']): KaizenMessage
   }
 }
 
-export function messageFor(state: ExerciseState, line: ExerciseLine, isFinalExercise: boolean): KaizenMessageCopy {
+export function messageFor(state: ExerciseState, tree: ExerciseTree, isFinalExercise: boolean): KaizenMessageCopy {
   const screenCopy = messageForScreen(state.screen);
   if (screenCopy) return screenCopy;
 
@@ -57,13 +57,13 @@ export function messageFor(state: ExerciseState, line: ExerciseLine, isFinalExer
     return state.illegal.reason === 'suicide'
       ? {
           title: 'Not a legal move',
-          body: `${line.setupBoard.stringifyVertex(state.illegal.vertex)} would have no liberties — that's suicide. Try another point.`,
+          body: `${tree.setupBoard.stringifyVertex(state.illegal.vertex)} would have no liberties — that's suicide. Try another point.`,
           tone: 'neutral',
           emphasized: false,
         }
       : {
           title: 'Ko',
-          body: `You can't retake at ${line.setupBoard.stringifyVertex(state.illegal.vertex)} right away. Play elsewhere first.`,
+          body: `You can't retake at ${tree.setupBoard.stringifyVertex(state.illegal.vertex)} right away. Play elsewhere first.`,
           tone: 'neutral',
           emphasized: false,
         };
@@ -71,10 +71,10 @@ export function messageFor(state: ExerciseState, line: ExerciseLine, isFinalExer
 
   switch (state.phase) {
     case 'play':
-      if (state.step === 1) {
+      if (state.selectedVariant === null) {
         return {
-          title: `Your biggest mistake: ${mistakeCoord(line)}`,
-          body: `Find a better move for ${colorName(line.userSign)}, then keep going for ${state.totalSteps} moves.`,
+          title: "Find KataGo's top move",
+          body: `Play one of ${colorName(tree.userSign)}'s top recommended moves here.`,
           tone: 'neutral',
           emphasized: false,
         };
@@ -89,7 +89,7 @@ export function messageFor(state: ExerciseState, line: ExerciseLine, isFinalExer
     case 'reply':
       return {
         title: 'Good move',
-        body: `${colorName(line.opponentSign)} is answering…`,
+        body: `${colorName(tree.opponentSign)} is answering…`,
         tone: 'pine',
         emphasized: false,
       };
@@ -97,10 +97,7 @@ export function messageFor(state: ExerciseState, line: ExerciseLine, isFinalExer
     case 'wrong':
       return {
         title: 'Incorrect',
-        body:
-          state.wrongMove?.reason === 'mistakeMove'
-            ? "That's the move you played in the game. Look again."
-            : "That's not KataGo's move here.",
+        body: "That's not one of KataGo's top moves here.",
         tone: 'shu',
         emphasized: true,
       };
@@ -146,11 +143,7 @@ export function actionsFor(state: ExerciseState): ActionsCopy {
   }
 }
 
-export function mistakeCoord(line: ExerciseLine): string {
-  return line.mistakeVertex ? line.setupBoard.stringifyVertex(line.mistakeVertex) : '';
-}
-
-export function turnLineText(state: ExerciseState, line: ExerciseLine): string {
+export function turnLineText(state: ExerciseState, tree: ExerciseTree): string {
   if (state.screen === 'loading') return 'Loading game';
   if (state.screen === 'error' || state.screen === 'sgfError') return 'Game unavailable';
   if (state.phase === 'done') return 'Line complete';

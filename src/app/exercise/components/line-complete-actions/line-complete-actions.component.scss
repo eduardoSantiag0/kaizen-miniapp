@@ -1,0 +1,36 @@
+.kz-line-complete {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0 16px 16px;
+}
+
+.kz-line-complete-row {
+  display: flex;
+  gap: 10px;
+}
+
+.kz-line-complete-secondary {
+  flex: 1;
+  height: 44px;
+  border-radius: 10px;
+  border: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
+  font-weight: 600;
+  font-size: 14px;
+
+  &:disabled {
+    opacity: 0.4;
+  }
+}
+
+.kz-line-complete-primary {
+  height: 52px;
+  border-radius: 10px;
+  border: none;
+  background: currentColor;
+  color: #fff;
+  font-weight: 700;
+  font-size: 15px;
+}

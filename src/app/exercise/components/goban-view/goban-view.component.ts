@@ -1,13 +1,13 @@
 import { Component, computed, input, output } from '@angular/core';
 import type { Map as ShudanMap, Vertex } from '@sabaki/shudan';
 import { GobanAdapterComponent, type VertexClass } from '../../../board/goban-adapter.component';
-import type { ExerciseLine } from '../../exercise-line';
-import { hintVertex, type ExerciseState } from '../../exercise-state';
+import type { ExerciseTree } from '../../exercise-tree';
+import { hintVertices, type ExerciseState } from '../../exercise-state';
 import { computeZoomWindow } from '../../zoom-window';
 
 /**
  * Exercise-specific presentation layer over GobanAdapterComponent: turns
- * ExerciseState + ExerciseLine into a signMap, vertex overlay classes and a
+ * ExerciseState + ExerciseTree into a signMap, vertex overlay classes and a
  * zoom window. Pure @Input-driven, no services — API/state concerns stay in
  * ExercisePage.
  */
@@ -31,7 +31,7 @@ import { computeZoomWindow } from '../../zoom-window';
 })
 export class GobanViewComponent {
   readonly state = input.required<ExerciseState>();
-  readonly line = input.required<ExerciseLine>();
+  readonly line = input.required<ExerciseTree>();
 
   readonly vertexTap = output<Vertex>();
 
@@ -46,7 +46,7 @@ export class GobanViewComponent {
 
   readonly vertexClasses = computed<VertexClass[]>(() => {
     const state = this.state();
-    const line = this.line();
+    const tree = this.line();
     const classes: VertexClass[] = [];
 
     if (state.lastMove) {
@@ -55,18 +55,14 @@ export class GobanViewComponent {
     if (state.phase === 'wrong' && state.wrongMove) {
       classes.push({ vertex: state.wrongMove.vertex, className: 'kz-wrong' });
     }
-    if (state.phase === 'play' && state.step === 1 && !state.lastMove && line.mistakeVertex) {
-      classes.push({ vertex: line.mistakeVertex, className: 'kz-mistake-point' });
-    }
-    if (state.phase === 'play' && state.step === 1 && !state.lastMove && line.previousMove) {
-      classes.push({ vertex: line.previousMove.vertex, className: 'kz-last-move' });
+    if (state.phase === 'play' && state.selectedVariant === null && !state.lastMove && tree.previousMove) {
+      classes.push({ vertex: tree.previousMove.vertex, className: 'kz-last-move' });
     }
     if (state.illegal) {
       classes.push({ vertex: state.illegal.vertex, className: 'kz-illegal' });
     }
 
-    const hint = hintVertex(state, line);
-    if (hint) {
+    for (const hint of hintVertices(state, tree)) {
       classes.push({ vertex: hint, className: 'kz-hint' });
     }
 
@@ -75,17 +71,14 @@ export class GobanViewComponent {
 
   readonly zoomWindow = computed(() => {
     const state = this.state();
-    const line = this.line();
+    const tree = this.line();
 
-    if (!state.zoomedIn || line.boardSize <= 13) {
+    if (!state.zoomedIn || tree.boardSize <= 13) {
       return { rangeX: undefined, rangeY: undefined } as { rangeX?: [number, number]; rangeY?: [number, number] };
     }
 
-    const pointsOfInterest: Vertex[] = [
-      ...(line.mistakeVertex ? [line.mistakeVertex] : []),
-      ...line.kataGoLine.map((p) => p.vertex),
-    ];
+    const pointsOfInterest: Vertex[] = tree.variants.flatMap((variant) => variant.plies.map((p) => p.vertex));
 
-    return computeZoomWindow(line.boardSize, pointsOfInterest);
+    return computeZoomWindow(tree.boardSize, pointsOfInterest);
   });
 }

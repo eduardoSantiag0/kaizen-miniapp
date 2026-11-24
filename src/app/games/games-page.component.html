@@ -9,6 +9,10 @@
       <p class="kz-games-intro">Review your games and practice your biggest mistakes.</p>
     </div>
 
+    @if (screen() === 'ready' && counts().all > 0) {
+      <kz-daily-practice-button />
+    }
+
     <div class="kz-games-filters" role="group" aria-label="Filter by server">
       <button
         type="button"

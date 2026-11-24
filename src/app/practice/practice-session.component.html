@@ -1,0 +1,31 @@
+@switch (screen()) {
+  @case ('loading') {
+    <kz-paper-background />
+    <div class="kz-session-state" role="status" aria-label="Loading your practice session">Loading…</div>
+  }
+  @case ('error') {
+    <kz-paper-background />
+    <div class="kz-session-state">
+      <p class="kz-session-state-title">Couldn't load your practice session</p>
+      <p class="kz-session-state-body">Check your connection and try again. Your progress is saved.</p>
+      <button type="button" class="kz-session-retry" (click)="retry()">Try again</button>
+    </div>
+  }
+  @case ('ready') {
+    @if (currentExercise()) {
+      <kz-exercise-page
+        mode="daily"
+        [gameId]="currentExercise()!.gameId"
+        [phase]="currentExercise()!.phase"
+        [depth]="currentExercise()!.currentDepth"
+        [topVariants]="currentExercise()!.topVariants"
+        [progress]="currentProgress()"
+        [sessionLabel]="sessionLabel()"
+        [isLastExercise]="isLastExercise()"
+        (exerciseSolved)="onExerciseSolved()"
+        (progressChanged)="onProgressChanged($event)"
+        (dailyNext)="onDailyNext()"
+      />
+    }
+  }
+}

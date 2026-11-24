@@ -1,11 +1,10 @@
 import { Component, computed, input } from '@angular/core';
 import { StoneDotComponent } from '../../../shared/stone-dot/stone-dot.component';
-
-export type ProgressNodeState = 'done' | 'current' | 'ahead';
+import { SessionTrackComponent } from '../../../shared/session-track/session-track.component';
 
 @Component({
   selector: 'kz-exercise-context',
-  imports: [StoneDotComponent],
+  imports: [StoneDotComponent, SessionTrackComponent],
   templateUrl: './exercise-context.component.html',
   styleUrl: './exercise-context.component.scss',
 })
@@ -16,17 +15,6 @@ export class ExerciseContextComponent {
   readonly step = input.required<number>();
   readonly totalSteps = input.required<number>();
   readonly showProgress = input(true);
-
-  readonly nodes = computed<ProgressNodeState[]>(() => {
-    const total = this.totalSteps();
-    const current = this.step();
-    return Array.from({ length: total }, (_, i) => {
-      const n = i + 1;
-      if (n < current) return 'done';
-      if (n === current) return 'current';
-      return 'ahead';
-    });
-  });
 
   readonly stepLabel = computed(() => `Step ${Math.min(this.step(), this.totalSteps())}/${this.totalSteps()}`);
 }

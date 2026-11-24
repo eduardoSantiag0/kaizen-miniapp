@@ -1,0 +1,36 @@
+:host {
+  display: block;
+  position: relative;
+  min-height: 100vh;
+}
+
+.kz-session-state {
+  position: relative;
+  z-index: 1;
+  padding: 48px 16px;
+  text-align: center;
+  font: 400 15px/21px 'IBM Plex Sans', sans-serif;
+  color: var(--kz-hint);
+}
+
+.kz-session-state-title {
+  margin: 0;
+  font: 600 17px/22px 'IBM Plex Sans', sans-serif;
+  color: var(--kz-ink);
+}
+
+.kz-session-state-body {
+  margin: 6px 0 0;
+}
+
+.kz-session-retry {
+  display: inline-block;
+  margin-top: 16px;
+  height: 44px;
+  padding: 0 20px;
+  border: none;
+  border-radius: 3px;
+  background: var(--kz-primary);
+  color: var(--kz-on-primary);
+  font: 700 15px/44px 'IBM Plex Sans', sans-serif;
+}

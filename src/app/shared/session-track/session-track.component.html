@@ -1,0 +1,11 @@
+<div class="kz-track" [style.--kz-track-node-size.px]="nodeSize()" aria-hidden="true">
+  @for (node of nodes(); track $index) {
+    <span class="kz-track-node" [class]="'kz-track-node--' + node"></span>
+    @if (!$last) {
+      <span class="kz-track-line" [class.kz-track-line--ahead]="node !== 'done'"></span>
+    }
+  }
+  @if (label()) {
+    <span class="kz-track-label">{{ label() }}</span>
+  }
+</div>

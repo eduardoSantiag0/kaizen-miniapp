@@ -2,123 +2,87 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { parse } from '@sabaki/sgf';
 import type { Vertex } from '@sabaki/shudan';
 import { GobanViewComponent } from './goban-view.component';
-import { buildExerciseLine, type ExerciseLine } from '../../exercise-line';
+import { buildExerciseTree, type ExerciseTree } from '../../exercise-tree';
 import {
   initExerciseState,
   playOpponentReply,
   playVertex,
   resetExercise,
+  toggleHint,
   undo,
   type ExerciseState,
 } from '../../exercise-state';
 
-function lineFromSgf(sgf: string): ExerciseLine {
-  return buildExerciseLine(parse(sgf)[0]);
+function treeFromSgf(sgf: string): ExerciseTree {
+  return buildExerciseTree(parse(sgf)[0]);
 }
 
 describe('GobanViewComponent', () => {
   let fixture: ComponentFixture<GobanViewComponent>;
 
-  // Setup: AB[cc]AW[gg], user (Black) to move. KataGo's line: ec, fc, ed, fd.
-  // The mistake (actually played): fc. A plain distractor: gc.
+  // Setup: AB[cc]AW[gg], user (Black) to move. Two candidate variants: ec/fc/ed/fd and gc.
   // AW[hi][ih] additionally surrounds the corner ii ([8,8]) on both its liberties, so B[ii] is suicide.
-  const line = lineFromSgf(
-    '(;FF[4]SZ[9]AB[cc]AW[gg][hi][ih]PL[B](;B[ec];W[fc];B[ed];W[fd])(;B[fc])(;B[gc]))'
+  const tree = treeFromSgf(
+    '(;FF[4]SZ[9]AB[cc]AW[gg][hi][ih]PL[B](;B[ec];W[fc];B[ed];W[fd])(;B[gc]))'
   );
 
   function setState(state: ExerciseState): void {
     fixture = TestBed.createComponent(GobanViewComponent);
     fixture.componentRef.setInput('state', state);
-    fixture.componentRef.setInput('line', line);
+    fixture.componentRef.setInput('line', tree);
     fixture.detectChanges();
   }
 
-  function hasMistakePoint(): boolean {
+  function hintVertices(): Vertex[] {
     return fixture.componentInstance
       .vertexClasses()
-      .some((c) => c.className === 'kz-mistake-point' && c.vertex[0] === line.mistakeVertex![0] && c.vertex[1] === line.mistakeVertex![1]);
+      .filter((c) => c.className === 'kz-hint')
+      .map((c) => c.vertex);
   }
 
-  it('marks the historical mistake point on a fresh exercise', () => {
-    setState(initExerciseState(line));
-    expect(hasMistakePoint()).toBe(true);
-  });
-
-  it('keeps the marker through an illegal-tap attempt, since illegal does not touch lastMove/phase/step', () => {
-    const fresh = initExerciseState(line);
-    const afterIllegalTap = playVertex(fresh, line, [8, 8]); // ii, surrounded — suicide
-    expect(afterIllegalTap.illegal?.reason).toBe('suicide');
-
-    setState(afterIllegalTap);
-    expect(hasMistakePoint()).toBe(true);
-  });
-
-  it('hides the marker the instant any legal move is played', () => {
-    const fresh = initExerciseState(line);
-    const afterCorrectMove = playVertex(fresh, line, [4, 2]); // ec, correct -> 'reply'
-    expect(afterCorrectMove.phase).toBe('reply');
-
-    setState(afterCorrectMove);
-    expect(hasMistakePoint()).toBe(false);
-  });
-
-  it('hides the marker in the wrong phase', () => {
-    const fresh = initExerciseState(line);
-    const afterMistakeTap = playVertex(fresh, line, [5, 2]); // fc, the mistake itself -> 'wrong'
-    expect(afterMistakeTap.phase).toBe('wrong');
-
-    setState(afterMistakeTap);
-    expect(hasMistakePoint()).toBe(false);
-  });
-
-  it('hides the marker in the done phase', () => {
-    let state = initExerciseState(line);
-    state = playVertex(state, line, [4, 2]); // ec, correct -> 'reply'
-    state = playOpponentReply(state, line); // fc, opponent's reply -> back to 'play', step 2
-    state = playVertex(state, line, [4, 3]); // ed, correct, final move -> 'done'
-    expect(state.phase).toBe('done');
+  it('before any variant is picked, rings every variant\'s first move as a hint once hint is on', () => {
+    let state = initExerciseState(tree);
+    state = toggleHint(state);
 
     setState(state);
-    expect(hasMistakePoint()).toBe(false);
+    expect(hintVertices()).toEqual([
+      [4, 2], // ec
+      [6, 2], // gc
+    ]);
   });
 
-  it('reappears after Reset', () => {
-    const fresh = initExerciseState(line);
-    const afterCorrectMove = playVertex(fresh, line, [4, 2]); // ec, correct -> marker hidden
-    setState(afterCorrectMove);
-    expect(hasMistakePoint()).toBe(false);
-
-    setState(resetExercise(line));
-    expect(hasMistakePoint()).toBe(true);
+  it('shows no hint rings while hint is off', () => {
+    setState(initExerciseState(tree));
+    expect(hintVertices()).toEqual([]);
   });
 
-  it('reappears after Undo-ing back to step 1', () => {
-    let state = initExerciseState(line);
-    state = playVertex(state, line, [4, 2]); // ec, correct -> 'reply'
-    state = playOpponentReply(state, line); // fc, opponent's reply -> back to 'play', step 2
+  it('once a variant is picked, rings only the next expected move', () => {
+    let state = initExerciseState(tree);
+    state = toggleHint(state);
+    state = playVertex(state, tree, [4, 2]); // ec, variant 0 -> reply
+    state = playOpponentReply(state, tree); // -> play, step 2
 
     setState(state);
-    expect(hasMistakePoint()).toBe(false); // step 2, not step 1
-
-    setState(undo(state, line));
-    expect(hasMistakePoint()).toBe(true);
+    expect(hintVertices()).toEqual([[4, 3]]); // ed
   });
 
-  it('adds no kz-last-move marker on a fresh exercise when the line has no previousMove (no regression for today\'s real fixtures)', () => {
-    setState(initExerciseState(line));
-    expect(line.previousMove).toBeNull();
+  it('adds no kz-last-move marker on a fresh exercise when the tree has no previousMove (no regression for today\'s real fixtures)', () => {
+    setState(initExerciseState(tree));
+    expect(tree.previousMove).toBeNull();
     expect(fixture.componentInstance.vertexClasses().some((c) => c.className === 'kz-last-move')).toBe(false);
   });
 
   describe('previous-move marker (reuses kz-last-move, no new style)', () => {
     // root -> single-child (;W[gc]) -> branch point. W[gc] is the real game's own
-    // last move leading into this position, before KataGo's line even starts.
-    const previousMoveLine = lineFromSgf('(;FF[4]SZ[9]AB[cc]PL[B];W[gc](;B[ec];W[fc])(;B[fc])(;B[hc]))');
+    // last move leading into this position, before any variant starts.
+    const previousMoveTree = treeFromSgf(
+      '(;FF[4]SZ[9]AB[cc]PL[B];W[gc](;B[ec];W[fc];B[ed];W[fd])(;B[fc])(;B[hc]))'
+    );
 
     function setPreviousMoveState(state: ExerciseState): void {
       fixture = TestBed.createComponent(GobanViewComponent);
       fixture.componentRef.setInput('state', state);
-      fixture.componentRef.setInput('line', previousMoveLine);
+      fixture.componentRef.setInput('line', previousMoveTree);
       fixture.detectChanges();
     }
 
@@ -129,21 +93,51 @@ describe('GobanViewComponent', () => {
     }
 
     it('marks the real last move before the branch point on a fresh exercise', () => {
-      expect(previousMoveLine.previousMove).toEqual({ sign: -1, vertex: [6, 2] }); // gc, White
+      expect(previousMoveTree.previousMove).toEqual({ sign: -1, vertex: [6, 2] }); // gc, White
 
-      setPreviousMoveState(initExerciseState(previousMoveLine));
+      setPreviousMoveState(initExerciseState(previousMoveTree));
       expect(hasLastMoveMarkerAt([6, 2])).toBe(true);
     });
 
     it('disappears once the user plays', () => {
-      const fresh = initExerciseState(previousMoveLine);
-      // totalSteps is 1 here (kataGoLine is just ec/fc), so this correct move already
-      // reaches 'done' — either way, lastMove is now set, which is all this marker checks.
-      const afterMove = playVertex(fresh, previousMoveLine, [4, 2]); // ec, correct
+      const fresh = initExerciseState(previousMoveTree);
+      const afterMove = playVertex(fresh, previousMoveTree, [4, 2]); // ec, correct, picks variant 0
       expect(afterMove.lastMove).not.toBeNull();
 
       setPreviousMoveState(afterMove);
       expect(hasLastMoveMarkerAt([6, 2])).toBe(false);
+    });
+
+    it('reappears after Reset', () => {
+      const fresh = initExerciseState(previousMoveTree);
+      const afterMove = playVertex(fresh, previousMoveTree, [4, 2]);
+      setPreviousMoveState(afterMove);
+      expect(hasLastMoveMarkerAt([6, 2])).toBe(false);
+
+      setPreviousMoveState(resetExercise(previousMoveTree));
+      expect(hasLastMoveMarkerAt([6, 2])).toBe(true);
+    });
+
+    it('reappears after Undo-ing back to no variant selected', () => {
+      let state = initExerciseState(previousMoveTree);
+      state = playVertex(state, previousMoveTree, [4, 2]); // ec, correct -> 'reply'
+      state = playOpponentReply(state, previousMoveTree); // fc, opponent's reply -> back to 'play', step 2
+
+      setPreviousMoveState(state);
+      expect(hasLastMoveMarkerAt([6, 2])).toBe(false); // a variant is already selected
+
+      // Undo once: back to step 1, variant still selected (marker still hidden).
+      state = undo(state, previousMoveTree);
+      expect(state.step).toBe(1);
+      expect(state.selectedVariant).toBe(0);
+      setPreviousMoveState(state);
+      expect(hasLastMoveMarkerAt([6, 2])).toBe(false);
+
+      // Undo again from step 1: clears the selection entirely.
+      state = undo(state, previousMoveTree);
+      expect(state.selectedVariant).toBeNull();
+      setPreviousMoveState(state);
+      expect(hasLastMoveMarkerAt([6, 2])).toBe(true);
     });
   });
 });

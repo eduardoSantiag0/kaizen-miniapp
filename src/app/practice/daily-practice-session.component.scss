@@ -1,0 +1,70 @@
+.kz-practice-page {
+  position: relative;
+  min-height: 100vh;
+}
+
+.kz-practice-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px 16px;
+  gap: 16px;
+}
+
+.kz-practice-state,
+.kz-practice-summary {
+  text-align: center;
+  padding: 32px 16px;
+}
+
+.kz-practice-state-title,
+.kz-practice-summary-title {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0 0 8px;
+}
+
+.kz-practice-state-body,
+.kz-practice-summary-line {
+  font-size: 14px;
+  opacity: 0.75;
+  margin: 0 0 4px;
+}
+
+.kz-practice-retry,
+.kz-practice-summary-action {
+  margin-top: 16px;
+  padding: 10px 20px;
+  border-radius: 10px;
+  border: none;
+  font-weight: 600;
+  background: currentColor;
+  color: inherit;
+  opacity: 0.9;
+}
+
+.kz-practice-done-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  max-width: 360px;
+}
+
+.kz-practice-action {
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.kz-practice-action--primary {
+  background: currentColor;
+  color: #fff;
+  border: none;
+}

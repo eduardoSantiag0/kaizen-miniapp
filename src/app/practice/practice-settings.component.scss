@@ -1,0 +1,161 @@
+:host {
+  display: block;
+  position: relative;
+  min-height: 100vh;
+}
+
+.kz-settings-page {
+  position: relative;
+  z-index: 1;
+  padding: 16px;
+  padding-bottom: 48px;
+}
+
+.kz-settings-header {
+  margin-bottom: 20px;
+}
+
+.kz-settings-title {
+  margin: 0;
+  font: 600 26px/32px 'IBM Plex Sans', sans-serif;
+  color: var(--kz-ink);
+}
+
+.kz-settings-note {
+  margin: 4px 0 0;
+  font: 400 13px/18px 'IBM Plex Sans', sans-serif;
+  color: var(--kz-hint);
+}
+
+.kz-setting {
+  padding: 20px 0;
+  border-top: 1px solid var(--kz-rule-list);
+
+  &:first-of-type {
+    border-top: none;
+    padding-top: 0;
+  }
+}
+
+.kz-setting-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.kz-setting-title {
+  margin: 0;
+  font: 600 17px/22px 'IBM Plex Sans', sans-serif;
+  color: var(--kz-ink);
+}
+
+.kz-setting-value {
+  font: 500 20px/1 'IBM Plex Mono', monospace;
+  color: var(--kz-primary);
+}
+
+.kz-setting-sentence {
+  margin: 6px 0 0;
+  font: 400 14px/20px 'IBM Plex Sans', sans-serif;
+  color: var(--kz-hint);
+}
+
+.kz-setting-slider {
+  width: 100%;
+  height: 44px;
+  margin-top: 14px;
+  accent-color: var(--kz-primary);
+}
+
+.kz-setting-slider-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: -8px;
+  font: 400 12px/1 'IBM Plex Mono', monospace;
+  color: var(--kz-hint);
+}
+
+.kz-setting-caption {
+  margin: 10px 0 0;
+  font: 400 13px/18px 'IBM Plex Sans', sans-serif;
+  color: var(--kz-hint);
+}
+
+.kz-setting-note {
+  margin: 8px 0 0;
+  font: 400 12px/17px 'IBM Plex Sans', sans-serif;
+  color: var(--kz-hint);
+}
+
+/* Accepted first moves' example — a 358×104 Kaya strip with 5 lettered
+   candidate points (handoff section 5), close enough to "game-record
+   alternatives" without inventing a real analyzed position. */
+.kz-candidate-example {
+  position: relative;
+  width: 100%;
+  max-width: 358px;
+  height: 104px;
+  margin-top: 14px;
+  border-radius: 3px;
+  background-color: #dcae5e;
+  background-image:
+    url('/assets/board-grain.jpg'),
+    repeating-linear-gradient(to right, rgba(28, 22, 12, 0.5) 0 1px, transparent 1px calc(100% / 10)),
+    repeating-linear-gradient(to bottom, rgba(28, 22, 12, 0.5) 0 1px, transparent 1px calc(100% / 3));
+  background-size: cover, 100% 100%, 100% 100%;
+  background-blend-mode: multiply, normal, normal;
+  display: flex;
+  align-items: center;
+  justify-content: space-evenly;
+}
+
+.kz-candidate-point {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font: 600 13px/1 'IBM Plex Sans', sans-serif;
+  color: #1c1a17;
+  background: rgba(241, 230, 204, 0.55);
+  border: 1.5px dashed rgba(28, 22, 12, 0.55);
+
+  &--accepted {
+    border: 2px solid #1c1a17;
+    border-style: solid;
+  }
+}
+
+/* Moves after the first's example — a numbered stone sequence (handoff
+   section 5): stone 1 is the user's move, ringed in primary. */
+.kz-depth-example {
+  display: flex;
+  align-items: center;
+  margin-top: 14px;
+  gap: 4px;
+}
+
+.kz-depth-stone {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font: 500 12px/1 'IBM Plex Mono', monospace;
+  background: #1e1d1f;
+  color: #e0d3b8;
+
+  &--white {
+    background: #e0d3b8;
+    color: #1e1d1f;
+  }
+
+  &--first {
+    margin-left: 2px;
+    box-shadow: 0 0 0 4px var(--kz-primary);
+  }
+}

@@ -1,0 +1,33 @@
+@switch (screen()) {
+  @case ('loading') {
+    <div class="kz-practice-card kz-practice-card--loading" role="status" aria-label="Loading Daily Practice">
+      <div class="kz-practice-card-skeleton-line kz-practice-card-skeleton-line--wide"></div>
+      <div class="kz-practice-card-skeleton-line kz-practice-card-skeleton-line--narrow"></div>
+    </div>
+  }
+  @case ('error') {
+    <!-- Non-blocking: Daily Practice failing to load shouldn't hide the rest of Home. -->
+  }
+  @case ('ready') {
+    @if (!isEmpty()) {
+      <div class="kz-practice-card">
+        <div class="kz-practice-card-text">
+          <p class="kz-practice-card-title">Daily Practice</p>
+          @if (isComplete()) {
+            <p class="kz-practice-card-body">Practice Complete — see you tomorrow.</p>
+          } @else if (hasStarted()) {
+            <p class="kz-practice-card-body">{{ completedCount() }} of {{ totalCount() }} done</p>
+          } @else {
+            <p class="kz-practice-card-body">{{ totalCount() }} exercises ready from your games</p>
+          }
+        </div>
+
+        @if (!isComplete()) {
+          <a class="kz-practice-card-action" routerLink="/practice">
+            {{ hasStarted() ? 'Continue Practice' : 'Start Practice' }}
+          </a>
+        }
+      </div>
+    }
+  }
+}

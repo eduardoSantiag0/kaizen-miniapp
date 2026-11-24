@@ -1,0 +1,54 @@
+:host {
+  display: block;
+}
+
+.kz-track {
+  display: flex;
+  align-items: center;
+}
+
+.kz-track-node {
+  width: var(--kz-track-node-size);
+  height: var(--kz-track-node-size);
+  flex: 0 0 auto;
+  border-radius: 50%;
+  box-sizing: border-box;
+
+  &--done {
+    background: var(--kz-ink);
+  }
+
+  &--current {
+    border: 2px solid var(--kz-primary);
+    position: relative;
+
+    &::after {
+      content: '';
+      position: absolute;
+      inset: 25%;
+      border-radius: 50%;
+      background: var(--kz-primary);
+    }
+  }
+
+  &--ahead {
+    border: 1.5px solid var(--kz-hint);
+  }
+}
+
+.kz-track-line {
+  flex: 1 1 auto;
+  height: 1px;
+  background: var(--kz-ink);
+
+  &--ahead {
+    background: var(--kz-rule);
+  }
+}
+
+.kz-track-label {
+  margin-left: 8px;
+  font: 400 12px/1 'IBM Plex Mono', monospace;
+  color: var(--kz-hint);
+  white-space: nowrap;
+}
