@@ -280,6 +280,8 @@ describe('PracticeSessionComponent', () => {
     const router = TestBed.inject(Router);
     spyOn(router, 'navigate');
     fixture.componentInstance.onDailyNext();
+    expect(router.navigate).not.toHaveBeenCalled();
+    tick(450); // FINISH_PRACTICE_DELAY_MS — the finished board stays on screen a beat before navigating.
     expect(router.navigate).toHaveBeenCalledWith(['/practice/complete']);
   }));
 

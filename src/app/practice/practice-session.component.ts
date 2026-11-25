@@ -1,4 +1,4 @@
-import { Component, computed, effect, inject, input, signal } from '@angular/core';
+import { Component, DestroyRef, computed, effect, inject, input, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { PracticeService } from '../data/practice.service';
 import type { DailyPracticeSession, PracticeExerciseRef } from '../data/practice.model';
@@ -7,6 +7,18 @@ import type { ExerciseProgress } from '../exercise/exercise-state';
 import { PaperBackgroundComponent } from '../shared/paper-background/paper-background.component';
 
 type Screen = 'loading' | 'ready' | 'error';
+
+/**
+ * Finish practice (last exercise of a daily session) used to call
+ * router.navigate(['/practice/complete']) the instant it was tapped —
+ * reported as "Finish practice doesn't leave the stone at the intersection":
+ * the final correct move's stone is actually on the board (confirmed by
+ * driving the real app), but the board is torn down for the completion
+ * screen so abruptly that the player never perceives it having landed. This
+ * delay (same idea as ExercisePageComponent's OPPONENT_REPLY_DELAY_MS) gives
+ * the finished board a beat on screen before the completion screen replaces it.
+ */
+const FINISH_PRACTICE_DELAY_MS = 450;
 
 /**
  * The thin Daily Practice session wrapper (handoff v4-kaizen-daily-practice
@@ -41,6 +53,9 @@ export class PracticeSessionComponent {
   private readonly reviewMode = signal(false);
   /** Set when Daily Practice Home's exercise list was tapped directly (not Start/Continue practice) — opens that one exercise instead of the first unsolved one. */
   private readonly requestedExerciseId = signal<string | null>(null);
+
+  private readonly destroyRef = inject(DestroyRef);
+  private finishTimer?: ReturnType<typeof setTimeout>;
 
   /** A generated ("Random practice") session has no Daily Practice Home streak screen to land on and, outside the real Telegram app, no native BackButton either — so it gets its own on-screen back control (the daily session still relies solely on Telegram's native one, by design — see ExercisePageComponent's showContextBack). */
   readonly isGeneratedSession = computed(() => this.session()?.kind === 'generated');
@@ -81,6 +96,8 @@ export class PracticeSessionComponent {
     // ExercisePageComponent loads via effect() on its own gameId input rather
     // than reading it directly in the constructor body.
     effect(() => this.load(this.id()));
+
+    this.destroyRef.onDestroy(() => clearTimeout(this.finishTimer));
   }
 
   retry(): void {
@@ -133,7 +150,10 @@ export class PracticeSessionComponent {
     if (session.kind === 'daily') {
       // Finish practice (last exercise) saves the session and opens the completion
       // screen; Done there returns to Games (handoff v4-3-kaizen-daily-practice section 6/8).
-      this.router.navigate(['/practice/complete']);
+      // Delayed (FINISH_PRACTICE_DELAY_MS) so the just-played final stone has a beat
+      // on screen before the board is replaced by the completion screen.
+      clearTimeout(this.finishTimer);
+      this.finishTimer = setTimeout(() => this.router.navigate(['/practice/complete']), FINISH_PRACTICE_DELAY_MS);
     } else {
       // A generated ("Random practice") session never affects the streak, so it gets
       // no completion screen — just back to the session list on Daily Practice Home.

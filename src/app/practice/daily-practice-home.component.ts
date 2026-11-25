@@ -97,7 +97,7 @@ export class DailyPracticeHomeComponent {
     // resume is what makes a just-solved exercise (or the row itself) show up
     // correctly instead of a stale/stuck view once the chat comes back.
     const onVisible = () => {
-      if (document.visibilityState === 'visible') this.load();
+      if (document.visibilityState === 'visible') this.refresh();
     };
     document.addEventListener('visibilitychange', onVisible);
     this.destroyRef.onDestroy(() => document.removeEventListener('visibilitychange', onVisible));
@@ -171,7 +171,15 @@ export class DailyPracticeHomeComponent {
 
   private load(): void {
     this.screen.set('loading');
+    this.fetch();
+  }
 
+  /** Re-fetches without first blanking the screen to 'loading' — used on visibilitychange, where the screen already has today's data and a Telegram-suspend-triggered refetch should never read as a fresh reload. */
+  private refresh(): void {
+    this.fetch();
+  }
+
+  private fetch(): void {
     this.practice.startTodaySession().subscribe({
       next: () => {
         this.refreshSessions();
@@ -179,7 +187,11 @@ export class DailyPracticeHomeComponent {
         this.practice.getPreferences().subscribe((prefs) => this.preferences.set(prefs));
         this.practice.getStreak().subscribe((streak) => this.currentStreak.set(streak.currentStreak));
       },
-      error: () => this.screen.set('error'),
+      // A background refresh failing must not blank out data already on screen —
+      // only show the error state if we had nothing to show in the first place.
+      error: () => {
+        if (this.screen() !== 'ready') this.screen.set('error');
+      },
     });
   }
 

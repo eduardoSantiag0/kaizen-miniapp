@@ -51,7 +51,11 @@ export class StreakChipComponent {
         this.currentStreak.set(streak.currentStreak);
         this.screen.set('ready');
       },
-      error: () => this.screen.set('error'),
+      // A visibilitychange-triggered refetch failing must not hide a chip that's
+      // already showing a real streak — only the first load can show 'error'.
+      error: () => {
+        if (this.screen() !== 'ready') this.screen.set('error');
+      },
     });
   }
 }

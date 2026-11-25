@@ -56,6 +56,16 @@ export class TelegramService {
     // whole layout here (100dvh fallback, viewportStableHeight) assumes the
     // maximized height, so without this the board would open cut off.
     this.webApp?.expand();
+    // viewportStableHeight above was read in the field initializer, i.e. before
+    // ready()/expand() ran — on clients where expand() updates it synchronously
+    // (no animation to await) that snapshot is already stale by the time this
+    // constructor returns, and it would otherwise only ever self-correct via
+    // 'viewportChanged' below, which not every client/platform reliably fires
+    // after expand(). Re-reading it here closes that gap without waiting on
+    // the event (handoff: "bg a bit short at the bottom" on Daily Practice).
+    if (this.insideTelegram) {
+      this.viewportStableHeight.set(this.webApp!.viewportStableHeight);
+    }
     this.webApp?.onEvent('themeChanged', () => {
       this.colorScheme.set(this.webApp!.colorScheme);
     });

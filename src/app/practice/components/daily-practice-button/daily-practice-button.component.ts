@@ -55,7 +55,7 @@ export class DailyPracticeButtonComponent {
     // recreating this component, so a stuck 'loading' (dropped request) or a
     // stale completed count needs a fresh load() on resume, not just at construction.
     const onVisible = () => {
-      if (document.visibilityState === 'visible') this.load();
+      if (document.visibilityState === 'visible') this.refresh();
     };
     document.addEventListener('visibilitychange', onVisible);
     this.destroyRef.onDestroy(() => document.removeEventListener('visibilitychange', onVisible));
@@ -68,12 +68,23 @@ export class DailyPracticeButtonComponent {
 
   private load(): void {
     this.screen.set('loading');
+    this.fetch();
+  }
+
+  /** Re-fetches without first blanking the row to 'loading' — a visibilitychange-triggered refetch while the row already shows today's count must not flash a skeleton over it. */
+  private refresh(): void {
+    this.fetch();
+  }
+
+  private fetch(): void {
     this.practice.startTodaySession().subscribe({
       next: (session) => {
         this.session.set(session);
         this.screen.set('ready');
       },
-      error: () => this.screen.set('error'),
+      error: () => {
+        if (this.screen() !== 'ready') this.screen.set('error');
+      },
     });
   }
 }

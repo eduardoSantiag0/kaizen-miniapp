@@ -165,12 +165,17 @@
   align-items: center;
   justify-content: center;
   font: 600 13px/1 'IBM Plex Sans', sans-serif;
-  color: #1c1a17;
-  background: rgba(241, 230, 204, 0.55);
+  color: rgba(28, 22, 12, 0.55);
+  background: transparent;
   border: 1px dashed rgba(28, 22, 12, 0.55);
 
+  /* Accepted reads as a real stone on the strip — solid paper-tinted fill and
+     ink letter/ring — not just a thicker border on the same faint fill. */
   &--accepted {
+    color: #1c1a17;
+    background: #f1e6cc;
     border: 2px solid #1c1a17;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
   }
 }
 
