@@ -7,13 +7,21 @@
   max-width: 100%;
 }
 
+/* A real Kaya board strip, not the loading-skeleton grey it used to use by
+   mistake — matches the board colour/grain used everywhere else a Go board
+   renders (goban-theme.scss, GameRow's own thumbnail). */
 .kz-streak-strip-board {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   align-items: center;
   justify-items: center;
   height: 96px;
-  background: var(--kz-skeleton);
+  background-color: #dcae5e;
+  background-image:
+    url('/assets/board-grain.jpg'),
+    repeating-linear-gradient(to right, rgba(28, 22, 12, 0.5) 0 1px, transparent 1px calc(100% / 7));
+  background-size: cover, 100% 100%;
+  background-blend-mode: multiply, normal;
   border-radius: 3px;
   position: relative;
 }
@@ -26,11 +34,14 @@
   height: 100%;
 }
 
+/* Fixed near-black, not var(--kz-ink) — that token goes cream/gold in dark
+   theme, which read as near-invisible against the Kaya gold board above. */
 .kz-streak-strip-stone {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: var(--kz-ink);
+  background: #1e1d1f;
+  box-shadow: 0 1.5px 0 rgba(0, 0, 0, 0.35);
   position: relative;
 }
 

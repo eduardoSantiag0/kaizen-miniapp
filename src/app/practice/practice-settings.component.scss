@@ -87,6 +87,29 @@
   color: var(--kz-hint);
 }
 
+.kz-source-choice {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.kz-source-option {
+  flex: 1 1 auto;
+  height: 44px;
+  border-radius: 3px;
+  border: none;
+  box-shadow: inset 0 0 0 1px var(--kz-rule);
+  background: transparent;
+  color: var(--kz-ink);
+  font: 600 14px/1 'IBM Plex Sans', sans-serif;
+
+  &--active {
+    box-shadow: none;
+    background: var(--kz-primary);
+    color: var(--kz-on-primary);
+  }
+}
+
 .kz-setting-note {
   margin: 8px 0 0;
   font: 400 12px/17px 'IBM Plex Sans', sans-serif;

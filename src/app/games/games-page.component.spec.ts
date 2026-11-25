@@ -1,4 +1,4 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+﻿import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { of, Subject } from 'rxjs';
 import { GamesPageComponent } from './games-page.component';
@@ -17,12 +17,20 @@ class StubPracticeService extends PracticeService {
     return of({ date: '2026-01-01', exercises: [], completed: false });
   }
 
+  override startNewRound() {
+    return this.startTodaySession();
+  }
+
+  override startRandomPractice() {
+    return this.startTodaySession();
+  }
+
   override recordResult() {
     return of(undefined);
   }
 
   override getPreferences() {
-    return of({ topVariants: 3, continuationDepth: 6 });
+    return of({ topVariants: 3, continuationDepth: 6, exerciseSource: 'own' as const, exerciseCount: 5 });
   }
 
   override setPreferences() {
@@ -42,10 +50,13 @@ class StubPracticeService extends PracticeService {
 // by GamesPageComponent's grouping) compares a DT[] value against `new Date()`
 // at the moment the test actually runs, so a fixed calendar date would make
 // the "Today" section wrongly empty (or "Earlier" wrongly full) on any other day.
+// Local calendar date, not `.toISOString()`'s UTC one — see
+// practice-exercise-picker.ts's todayIso() for why that flips to the wrong
+// day for a window around local midnight in negative-UTC-offset timezones.
 function isoDate(daysAgo: number): string {
   const d = new Date();
   d.setDate(d.getDate() - daysAgo);
-  return d.toISOString().slice(0, 10);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 const DONE_SGF = `(;FF[4]SZ[19]PB[the_user]PW[kitsune77]BR[4k]WR[3k]PC[OGS]DT[${isoDate(0)}]RE[B+R]PL[B];B[qd];W[cp];B[nq](;B[je];W[ie])(;B[ro];W[qo]))`;

@@ -1,4 +1,4 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+﻿import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 import { DailyPracticeButtonComponent } from './daily-practice-button.component';
@@ -32,12 +32,20 @@ class StubPracticeService extends PracticeService {
     return of(this.session);
   }
 
+  override startNewRound() {
+    return of(this.session);
+  }
+
+  override startRandomPractice() {
+    return of(this.session);
+  }
+
   override recordResult() {
     return of(undefined);
   }
 
   override getPreferences() {
-    return of({ topVariants: 3, continuationDepth: 4 });
+    return of({ topVariants: 3, continuationDepth: 4, exerciseSource: 'own' as const, exerciseCount: 5 });
   }
 
   override setPreferences() {
@@ -150,5 +158,8 @@ describe('DailyPracticeButtonComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toContain('5 days in a row');
+
+    const link = fixture.nativeElement.querySelector('.kz-daily-streak') as HTMLAnchorElement;
+    expect(link.getAttribute('ng-reflect-router-link') ?? link.getAttribute('href')).toContain('/practice/complete');
   });
 });

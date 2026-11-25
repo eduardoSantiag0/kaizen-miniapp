@@ -104,6 +104,22 @@ export class DailyPracticeHomeComponent {
     this.router.navigate(['/practice/session'], { queryParams: { review: '1' } });
   }
 
+  /** "Continue practicing" (shown once today's original session is complete): generates another set of problems and jumps straight into solving them, rather than just refreshing this screen's own list. */
+  continuePracticing(): void {
+    this.practice.startNewRound().subscribe((session) => {
+      this.session.set(session);
+      this.router.navigate(['/practice/session']);
+    });
+  }
+
+  /** "Random practice" (below Start/Continue practice): a session built entirely from the bundled practice-pool, for testing — see PracticeService.startRandomPractice's own doc comment. */
+  startRandomPractice(): void {
+    this.practice.startRandomPractice().subscribe((session) => {
+      this.session.set(session);
+      this.router.navigate(['/practice/session']);
+    });
+  }
+
   openSettings(): void {
     this.router.navigate(['/practice/settings']);
   }

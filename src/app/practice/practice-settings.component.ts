@@ -1,7 +1,7 @@
 import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { PracticeService } from '../data/practice.service';
-import { DEFAULT_PRACTICE_PREFERENCES, type PracticePreferences } from '../data/practice.model';
+import { DEFAULT_PRACTICE_PREFERENCES, type ExerciseSource, type PracticePreferences } from '../data/practice.model';
 import { TelegramService } from '../core/telegram.service';
 import { PaperBackgroundComponent } from '../shared/paper-background/paper-background.component';
 import { SeigaihaFillComponent } from '../shared/seigaiha-fill/seigaiha-fill.component';
@@ -34,6 +34,10 @@ export class PracticeSettingsComponent {
 
   readonly topVariants = computed(() => this.preferences().topVariants);
   readonly continuationDepth = computed(() => this.preferences().continuationDepth);
+  readonly exerciseSource = computed(() => this.preferences().exerciseSource);
+  readonly exerciseCount = computed(() => this.preferences().exerciseCount);
+
+  readonly exerciseCountValueText = computed(() => `${this.exerciseCount()} exercises per session`);
 
   readonly topVariantsCaption = computed(() => {
     const n = this.topVariants();
@@ -79,6 +83,14 @@ export class PracticeSettingsComponent {
 
   onDepthInput(value: string): void {
     this.updatePreferences({ continuationDepth: Number(value) });
+  }
+
+  onExerciseSourceChange(value: ExerciseSource): void {
+    this.updatePreferences({ exerciseSource: value });
+  }
+
+  onExerciseCountInput(value: string): void {
+    this.updatePreferences({ exerciseCount: Number(value) });
   }
 
   private updatePreferences(patch: Partial<PracticePreferences>): void {

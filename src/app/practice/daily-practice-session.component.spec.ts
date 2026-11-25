@@ -1,4 +1,4 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+﻿import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 import { DailyPracticeSessionComponent } from './daily-practice-session.component';
@@ -55,6 +55,14 @@ class StubPracticeService extends PracticeService {
     return of(this.session);
   }
 
+  override startNewRound() {
+    return of(this.session);
+  }
+
+  override startRandomPractice() {
+    return of(this.session);
+  }
+
   override recordResult(exerciseId: string) {
     const exercises = this.session.exercises.map((e) =>
       e.id === exerciseId ? { ...e, completed: true } : e,
@@ -64,7 +72,7 @@ class StubPracticeService extends PracticeService {
   }
 
   override getPreferences() {
-    return of({ topVariants: 3, continuationDepth: 6 });
+    return of({ topVariants: 3, continuationDepth: 6, exerciseSource: 'own' as const, exerciseCount: 5 });
   }
 
   override setPreferences() {

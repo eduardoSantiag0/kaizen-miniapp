@@ -1,4 +1,4 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+﻿import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { of } from 'rxjs';
 import { PracticeCompleteComponent } from './practice-complete.component';
@@ -35,6 +35,14 @@ class StubPracticeService extends PracticeService {
     return of(this.session);
   }
 
+  override startNewRound() {
+    return of(this.session);
+  }
+
+  override startRandomPractice() {
+    return of(this.session);
+  }
+
   override recordResult() {
     return of(undefined);
   }
@@ -44,7 +52,7 @@ class StubPracticeService extends PracticeService {
   }
 
   override getPreferences() {
-    return of({ topVariants: 3, continuationDepth: 4 });
+    return of({ topVariants: 3, continuationDepth: 4, exerciseSource: 'own' as const, exerciseCount: 5 });
   }
 
   override setPreferences() {

@@ -1,4 +1,4 @@
-import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
+﻿import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 import { PracticeSessionComponent } from './practice-session.component';
@@ -32,7 +32,7 @@ function exerciseRef(overrides: Partial<PracticeExerciseRef> & Pick<PracticeExer
 
 class StubPracticeService extends PracticeService {
   session: DailyPracticeSession = { date: '2026-01-01', exercises: [], completed: false };
-  preferences: PracticePreferences = { topVariants: 3, continuationDepth: 4 };
+  preferences: PracticePreferences = { topVariants: 3, continuationDepth: 4, exerciseSource: 'own' as const, exerciseCount: 5 };
   recordedResults: { id: string }[] = [];
   savedProgress: { id: string; progress: ExerciseProgress }[] = [];
 
@@ -41,6 +41,14 @@ class StubPracticeService extends PracticeService {
   }
 
   override startTodaySession() {
+    return of(this.session);
+  }
+
+  override startNewRound() {
+    return of(this.session);
+  }
+
+  override startRandomPractice() {
     return of(this.session);
   }
 

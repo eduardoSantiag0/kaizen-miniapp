@@ -1,33 +1,13 @@
 import { Injectable, inject } from '@angular/core';
-import { map, Observable, of } from 'rxjs';
+import { map, Observable, of, switchMap } from 'rxjs';
 import { GameHistoryService } from './game-history.service';
-import type { GameHistoryDto, GamePhase } from './game-history.model';
+import type { GameHistoryDto } from './game-history.model';
+import { PracticePoolService } from './practice-pool.service';
 import { PracticeService } from './practice.service';
-import {
-  DEFAULT_PRACTICE_PREFERENCES,
-  type DailyPracticeSession,
-  type PracticeExerciseRef,
-  type PracticePreferences,
-  type StreakInfo,
-} from './practice.model';
+import { DEFAULT_PRACTICE_PREFERENCES, type DailyPracticeSession, type PracticePreferences, type StreakInfo } from './practice.model';
 import type { ExerciseProgress } from '../exercise/exercise-state';
 import { SgfParserService } from '../sgf/sgf-parser.service';
-import { buildExerciseTree } from '../exercise/exercise-tree';
-import type { SgfNode } from '../sgf/sgf-node';
-import { BLACK, moveOf, WHITE } from '../sgf/sgf-node';
-
-const MAX_EXERCISES_PER_SESSION = 5;
-
-/** Chronological order — same convention as exercise-source.ts/game-list-entry.ts. */
-const PHASE_ORDER: { phase: GamePhase; key: keyof GameHistoryDto }[] = [
-  { phase: 'opening', key: 'openingAnalysed' },
-  { phase: 'middlegame', key: 'middlegameAnalysed' },
-  { phase: 'endgame', key: 'endgameAnalysed' },
-];
-
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
-}
+import { cloneSession, pickExercises, todayIso } from './practice-exercise-picker';
 
 /**
  * Session-local Daily Practice backend, no network — built on top of
@@ -41,6 +21,7 @@ function todayIso(): string {
 export class MockPracticeService extends PracticeService {
   private readonly gameHistory = inject(GameHistoryService);
   private readonly sgfParser = inject(SgfParserService);
+  private readonly practicePool = inject(PracticePoolService);
 
   private session: DailyPracticeSession | null = null;
   private preferences: PracticePreferences = { ...DEFAULT_PRACTICE_PREFERENCES };
@@ -53,12 +34,66 @@ export class MockPracticeService extends PracticeService {
     if (this.session) return of(cloneSession(this.session));
 
     return this.gameHistory.listGames().pipe(
-      map((dtos) => {
-        const exercises = this.pickExercises(dtos);
+      switchMap((dtos) => this.candidatePool(dtos)),
+      map((candidates) => {
+        const exercises = pickExercises(this.sgfParser, candidates, {
+          count: this.preferences.exerciseCount,
+          topVariants: this.preferences.topVariants,
+          continuationDepth: this.preferences.continuationDepth,
+        });
         this.session = { date: todayIso(), exercises, completed: exercises.length === 0 };
         return cloneSession(this.session);
       }),
     );
+  }
+
+  /** Always regenerates, unlike startTodaySession — shuffled, so it visibly varies call to call even against the mock's own small fixed pool. */
+  startNewRound(): Observable<DailyPracticeSession> {
+    return this.gameHistory.listGames().pipe(
+      switchMap((dtos) => this.candidatePool(dtos)),
+      map((candidates) => {
+        const exercises = pickExercises(this.sgfParser, candidates, {
+          count: this.preferences.exerciseCount,
+          shuffled: true,
+          topVariants: this.preferences.topVariants,
+          continuationDepth: this.preferences.continuationDepth,
+        });
+        this.session = { date: todayIso(), exercises, completed: exercises.length === 0 };
+        return cloneSession(this.session);
+      }),
+    );
+  }
+
+  /**
+   * "Random practice" — unlike every other session-building method here,
+   * this ignores the chat's own games and the exerciseSource preference
+   * entirely: the whole session comes from the bundled practice-pool, purely
+   * for testing (see PracticeService.startRandomPractice's own doc comment).
+   * Still honors the exerciseCount preference, same as a normal session.
+   */
+  startRandomPractice(): Observable<DailyPracticeSession> {
+    return this.practicePool.pool$.pipe(
+      map((pool) => {
+        const exercises = pickExercises(this.sgfParser, pool, {
+          count: this.preferences.exerciseCount,
+          shuffled: true,
+          topVariants: this.preferences.topVariants,
+          continuationDepth: this.preferences.continuationDepth,
+        });
+        this.session = { date: todayIso(), exercises, completed: exercises.length === 0 };
+        return cloneSession(this.session);
+      }),
+    );
+  }
+
+  /**
+   * 'own' (default): just the chat's own games. 'mixed': the chat's own games
+   * first, padded with the practice-pool so a thin own-games pool still
+   * fills a session.
+   */
+  private candidatePool(dtos: GameHistoryDto[]): Observable<GameHistoryDto[]> {
+    if (this.preferences.exerciseSource !== 'mixed') return of(dtos);
+    return this.practicePool.pool$.pipe(map((pool) => [...dtos, ...pool]));
   }
 
   recordResult(exerciseId: string): Observable<void> {
@@ -94,69 +129,4 @@ export class MockPracticeService extends PracticeService {
     const doneToday = this.session?.completed ?? false;
     return of({ currentStreak: doneToday ? 1 : 0, last7Days: [false, false, false, false, false, false, doneToday] });
   }
-
-  private pickExercises(dtos: GameHistoryDto[]): PracticeExerciseRef[] {
-    const refs: PracticeExerciseRef[] = [];
-
-    for (const dto of dtos) {
-      for (const { phase, key } of PHASE_ORDER) {
-        const sgf = dto[key];
-        if (typeof sgf !== 'string') continue;
-
-        try {
-          const root = this.sgfParser.parse(sgf).root;
-          buildExerciseTree(root); // throws if there's no usable branch point
-          refs.push({
-            id: `${dto.id}-${phase}`,
-            gameId: dto.id,
-            phase,
-            completed: false,
-            topVariants: this.preferences.topVariants,
-            currentDepth: this.preferences.continuationDepth,
-            selectedVariant: null,
-            step: 1,
-            ...displayInfo(root),
-          });
-        } catch {
-          // Not exercise-able (no branch point, or unreadable) — skip, same as game-list-entry.ts.
-        }
-
-        if (refs.length >= MAX_EXERCISES_PER_SESSION) return refs;
-      }
-    }
-
-    return refs;
-  }
-}
-
-/** Same derivation GamesPage's GameListEntry uses — see game-list-entry.ts. */
-function displayInfo(root: SgfNode): Pick<PracticeExerciseRef, 'opponentName' | 'opponentRank' | 'boardSize' | 'userSign' | 'moveNumber'> {
-  const userSign = root.data['PL']?.[0] === 'W' ? WHITE : BLACK;
-  const blackName = root.data['PB']?.[0] ?? '';
-  const whiteName = root.data['PW']?.[0] ?? '';
-  const blackRank = root.data['BR']?.[0] ?? '';
-  const whiteRank = root.data['WR']?.[0] ?? '';
-
-  return {
-    userSign,
-    opponentName: userSign === BLACK ? whiteName : blackName,
-    opponentRank: userSign === BLACK ? whiteRank : blackRank,
-    boardSize: Number(root.data['SZ']?.[0] ?? 19),
-    moveNumber: branchPointDepth(root),
-  };
-}
-
-/** 1-based move number of the first node with more than one child (buildExerciseTree's branch point) — same as game-list-entry.ts's branchPointDepth. */
-function branchPointDepth(root: SgfNode): number {
-  let count = 0;
-  let node: SgfNode | undefined = root;
-  while (node && node.children.length === 1) {
-    if (moveOf(node)) count++;
-    node = node.children[0];
-  }
-  return count + 1;
-}
-
-function cloneSession(session: DailyPracticeSession): DailyPracticeSession {
-  return { ...session, exercises: session.exercises.map((e) => ({ ...e })) };
 }

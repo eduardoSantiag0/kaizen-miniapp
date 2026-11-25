@@ -8,6 +8,7 @@ import { GameHistoryService } from './data/game-history.service';
 import { HttpGameHistoryService } from './data/http-game-history.service';
 import { MockGameHistoryService } from './data/mock-game-history.service';
 import { PracticeService } from './data/practice.service';
+import { HttpPracticeService } from './data/http-practice.service';
 import { MockPracticeService } from './data/mock-practice.service';
 
 export const appConfig: ApplicationConfig = {
@@ -25,12 +26,13 @@ export const appConfig: ApplicationConfig = {
       provide: GameHistoryService,
       useClass: environment.useRealBackend ? HttpGameHistoryService : MockGameHistoryService,
     },
-    // No real backend yet (docs/backend-contract/daily-practice-endpoint-proposal.md)
-    // — stays on the mock regardless of environment.useRealBackend. Swap to
-    // HttpPracticeService (http-practice.service.ts) once that backend exists.
+    // Same switch as GameHistoryService above. The real endpoints this hits
+    // (docs/backend-contract/daily-practice-endpoint-proposal.md) are the
+    // chat owner's own responsibility to implement server-side, same as the
+    // games-history endpoint — the frontend isn't blocked on that existing.
     {
       provide: PracticeService,
-      useClass: MockPracticeService,
+      useClass: environment.useRealBackend ? HttpPracticeService : MockPracticeService,
     },
   ]
 };

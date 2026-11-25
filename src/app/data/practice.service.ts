@@ -13,6 +13,23 @@ export abstract class PracticeService {
   abstract getTodaySession(): Observable<DailyPracticeSession | null>;
   /** Idempotent — returns the existing session unchanged if one already exists for today. */
   abstract startTodaySession(): Observable<DailyPracticeSession>;
+  /**
+   * "Continue practicing" once today's original session is already complete
+   * (Daily Practice Home) — unlike startTodaySession, this always replaces
+   * today's session with a fresh batch instead of returning the existing one.
+   * Speculative, like every other member here: no corresponding backend
+   * endpoint exists yet (see HttpPracticeService and
+   * docs/backend-contract/daily-practice-endpoint-proposal.md).
+   */
+  abstract startNewRound(): Observable<DailyPracticeSession>;
+  /**
+   * "Random practice" (Daily Practice Home, below Start practice) — builds a
+   * session entirely from the bundled practice-pool (public/practice-pool/practice-pool.json),
+   * ignoring the chat's own games and the exerciseSource preference
+   * entirely. For testing: that pool is a fixed fallback set bundled with
+   * the frontend itself, not real backend content.
+   */
+  abstract startRandomPractice(): Observable<DailyPracticeSession>;
   abstract recordResult(exerciseId: string): Observable<void>;
   /** Save after every confirmed move, Try another line and Go deeper (handoff v4-3 section 9). */
   abstract saveProgress(exerciseId: string, progress: ExerciseProgress): Observable<void>;

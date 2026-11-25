@@ -1,9 +1,10 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { delay, map, Observable, of } from 'rxjs';
+import { delay, map, Observable, of, switchMap } from 'rxjs';
 import { forkJoin } from 'rxjs';
 import { GameHistoryService } from './game-history.service';
 import type { GameHistoryDto } from './game-history.model';
+import { PracticePoolService } from './practice-pool.service';
 import { SgfParserService } from '../sgf/sgf-parser.service';
 
 /**
@@ -16,6 +17,7 @@ import { SgfParserService } from '../sgf/sgf-parser.service';
 export class MockGameHistoryService extends GameHistoryService {
   private readonly http = inject(HttpClient);
   private readonly sgfParser = inject(SgfParserService);
+  private readonly practicePool = inject(PracticePoolService);
 
   /** Games "resigned" (cancelled/deleted) this session — filtered out of every subsequent list, so the mock behaves like a real resign endpoint across a refetch. */
   private readonly resignedIds = new Set<string>();
@@ -43,10 +45,15 @@ export class MockGameHistoryService extends GameHistoryService {
    * "Today"/"Yesterday" correctly whenever the app actually runs.
    */
   private static syntheticGames(): GameHistoryDto[] {
+    // Local calendar date, not `.toISOString()`'s UTC one — see
+    // practice-exercise-picker.ts's todayIso() for why that flips to the
+    // wrong day for a window around local midnight in negative-UTC-offset
+    // timezones, exactly what this fixture needs to land in "Today"/
+    // "Yesterday" correctly.
     const isoDaysAgo = (days: number) => {
       const d = new Date();
       d.setDate(d.getDate() - days);
-      return d.toISOString().slice(0, 10);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     };
 
     return [
@@ -84,8 +91,16 @@ export class MockGameHistoryService extends GameHistoryService {
     ];
   }
 
+  /**
+   * A 'mixed'/"Random practice" exercise's gameId may be one of the bundled
+   * practice-pool's own entries rather than one of the chat's real games —
+   * checked first, so opening it resolves that entry's own SGF instead of
+   * always falling through to the single real fixture triplet below.
+   */
   getGameHistory(gameId: string): Observable<GameHistoryDto> {
-    return this.fetchRealGame(gameId);
+    return this.practicePool.findById(gameId).pipe(
+      switchMap((pooled) => (pooled ? of(pooled) : this.fetchRealGame(gameId))),
+    );
   }
 
   /**

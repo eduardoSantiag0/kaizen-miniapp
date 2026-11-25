@@ -8,6 +8,30 @@
 
   <section class="kz-setting">
     <div class="kz-setting-head">
+      <h2 class="kz-setting-title" id="kzExerciseCountTitle">Exercises per session</h2>
+      <span class="kz-setting-value">{{ exerciseCount() }}</span>
+    </div>
+    <p class="kz-setting-sentence">How many exercises make up one daily practice session.</p>
+
+    <input
+      type="range"
+      class="kz-setting-slider"
+      min="1"
+      max="10"
+      step="1"
+      [value]="exerciseCount()"
+      (input)="onExerciseCountInput($any($event.target).value)"
+      aria-labelledby="kzExerciseCountTitle"
+      [attr.aria-valuetext]="exerciseCountValueText()"
+    />
+    <div class="kz-setting-slider-labels" aria-hidden="true">
+      <span>1</span>
+      <span>10</span>
+    </div>
+  </section>
+
+  <section class="kz-setting">
+    <div class="kz-setting-head">
       <h2 class="kz-setting-title" id="kzTopVariantsTitle">Accepted first moves</h2>
       <span class="kz-setting-value">{{ topVariants() }}</span>
     </div>
@@ -73,6 +97,35 @@
     </div>
     <p class="kz-setting-caption">{{ depthCaption() }}</p>
     <p class="kz-setting-note">After a line, Go deeper adds 2 more moves at a time, up to 10, wherever KataGo analyzed further.</p>
+  </section>
+
+  <section class="kz-setting">
+    <h2 class="kz-setting-title">Where exercises come from</h2>
+    <p class="kz-setting-sentence">Your own analyzed games, or padded out with community exercises once your own run out.</p>
+
+    <div class="kz-source-choice" role="radiogroup" aria-label="Where exercises come from">
+      <button
+        type="button"
+        class="kz-source-option"
+        [class.kz-source-option--active]="exerciseSource() === 'own'"
+        role="radio"
+        [attr.aria-checked]="exerciseSource() === 'own'"
+        (click)="onExerciseSourceChange('own')"
+      >
+        Your games
+      </button>
+      <button
+        type="button"
+        class="kz-source-option"
+        [class.kz-source-option--active]="exerciseSource() === 'mixed'"
+        role="radio"
+        [attr.aria-checked]="exerciseSource() === 'mixed'"
+        (click)="onExerciseSourceChange('mixed')"
+      >
+        Mixed with community
+      </button>
+    </div>
+    <p class="kz-setting-note">Your own games always come first — community exercises only fill out the rest of a session.</p>
   </section>
 
   <kz-seigaiha-fill />

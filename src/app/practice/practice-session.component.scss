@@ -1,12 +1,14 @@
 :host {
   display: block;
-  position: relative;
-  min-height: 100vh;
+  min-height: 100vh; /* fallback for WebViews without dvh support */
+  min-height: 100dvh; /* excludes the mobile browser/WebView chrome that 100vh counts */
+  min-height: var(--kz-viewport-height); /* Telegram's own stable height when running inside Telegram (SafeAreaService) */
+  max-width: 390px;
+  margin: 0 auto;
+  padding-top: var(--kz-content-safe-top, 0px);
 }
 
 .kz-session-state {
-  position: relative;
-  z-index: 1;
   padding: 48px 16px;
   text-align: center;
   font: 400 15px/21px 'IBM Plex Sans', sans-serif;

@@ -13,7 +13,9 @@
       </svg>
     </a>
     @if (currentStreak() > 0) {
-      <kz-streak-badge class="kz-daily-streak" [days]="currentStreak()" />
+      <a class="kz-daily-streak" routerLink="/practice/complete" [attr.aria-label]="'Streak: ' + currentStreak() + ' days in a row'">
+        <kz-streak-badge [days]="currentStreak()" />
+      </a>
     }
   </div>
 }

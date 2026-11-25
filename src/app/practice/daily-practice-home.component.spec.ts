@@ -1,4 +1,4 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+﻿import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { DailyPracticeHomeComponent } from './daily-practice-home.component';
@@ -26,7 +26,12 @@ function exerciseRef(overrides: Partial<PracticeExerciseRef> & Pick<PracticeExer
 
 class StubPracticeService extends PracticeService {
   session: DailyPracticeSession = { date: '2026-01-01', exercises: [], completed: false };
-  preferences: PracticePreferences = { topVariants: 3, continuationDepth: 4 };
+  /** What startNewRound() returns — defaults to a fresh, uncompleted copy of `session`'s own exercises. */
+  newRoundSession: DailyPracticeSession | null = null;
+  startNewRoundCalls = 0;
+  randomPracticeSession: DailyPracticeSession = { date: '2026-01-01', exercises: [], completed: false };
+  startRandomPracticeCalls = 0;
+  preferences: PracticePreferences = { topVariants: 3, continuationDepth: 4, exerciseSource: 'own' as const, exerciseCount: 5 };
   currentStreak = 0;
   startTodaySessionError = false;
 
@@ -36,6 +41,23 @@ class StubPracticeService extends PracticeService {
 
   override startTodaySession() {
     return this.startTodaySessionError ? throwError(() => new Error('network error')) : of(this.session);
+  }
+
+  override startNewRound() {
+    this.startNewRoundCalls++;
+    const next = this.newRoundSession ?? {
+      ...this.session,
+      completed: false,
+      exercises: this.session.exercises.map((e) => ({ ...e, completed: false })),
+    };
+    this.session = next;
+    return of(next);
+  }
+
+  override startRandomPractice() {
+    this.startRandomPracticeCalls++;
+    this.session = this.randomPracticeSession;
+    return of(this.randomPracticeSession);
   }
 
   override recordResult() {
@@ -160,10 +182,31 @@ describe('DailyPracticeHomeComponent', () => {
     expect(router.navigate).toHaveBeenCalledWith(['/practice/session'], { queryParams: { review: '1' } });
   });
 
+  it('"Continue practicing" sits above "Review exercises", starts a fresh round, and jumps straight into it', () => {
+    create({
+      session: {
+        date: '2026-01-01',
+        completed: true,
+        exercises: [exerciseRef({ id: 'e1', completed: true })],
+      },
+    });
+    fixture.detectChanges();
+
+    const buttons = Array.from(fixture.nativeElement.querySelectorAll('.kz-home-complete button')) as HTMLButtonElement[];
+    expect(buttons.map((b) => b.textContent?.trim())).toEqual(['Continue practicing', 'Review exercises']);
+
+    const router = TestBed.inject(Router);
+    spyOn(router, 'navigate');
+    buttons[0].click();
+
+    expect(stub.startNewRoundCalls).toBe(1);
+    expect(router.navigate).toHaveBeenCalledWith(['/practice/session']);
+  });
+
   it('shows the current preference values on the settings row and navigates to /practice/settings', () => {
     create({
       session: { date: '2026-01-01', completed: false, exercises: [exerciseRef({ id: 'e1' })] },
-      preferences: { topVariants: 3, continuationDepth: 4 },
+      preferences: { topVariants: 3, continuationDepth: 4, exerciseSource: 'own' as const, exerciseCount: 5 },
     });
     fixture.detectChanges();
 
@@ -182,6 +225,18 @@ describe('DailyPracticeHomeComponent', () => {
     const router = TestBed.inject(Router);
     spyOn(router, 'navigate');
     (fixture.nativeElement.querySelector('.kz-home-primary') as HTMLButtonElement).click();
+    expect(router.navigate).toHaveBeenCalledWith(['/practice/session']);
+  });
+
+  it('"Random practice" sits below Start/Continue practice, builds a session from the practice-pool, and jumps straight into it', () => {
+    create({ session: { date: '2026-01-01', completed: false, exercises: [exerciseRef({ id: 'e1' })] } });
+    fixture.detectChanges();
+
+    const router = TestBed.inject(Router);
+    spyOn(router, 'navigate');
+    (fixture.nativeElement.querySelector('.kz-home-random') as HTMLButtonElement).click();
+
+    expect(stub.startRandomPracticeCalls).toBe(1);
     expect(router.navigate).toHaveBeenCalledWith(['/practice/session']);
   });
 

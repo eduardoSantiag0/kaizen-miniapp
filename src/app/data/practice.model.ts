@@ -52,14 +52,29 @@ export interface DailyPracticeSession {
  * sections 5 and 7), which resolves the RF02.2-vs-RF03.4 discrepancy in
  * favor of 4 — see the proposal doc's "Resolved" note.
  */
+/**
+ * 'own' (default): only exercises built from the chat's own analyzed games.
+ * 'mixed': pads a session with community-contributed exercises once the
+ * chat's own games run out, instead of a shorter session — there's no real
+ * community-content source wired up yet (MockPracticeService's own pool is
+ * empty until one exists), so 'mixed' currently behaves like 'own' in
+ * practice; the preference itself is real and saved either way.
+ */
+export type ExerciseSource = 'own' | 'mixed';
+
 export interface PracticePreferences {
   /** 1-5, default 3. */
   topVariants: number;
   /** 2-10, default 4. */
   continuationDepth: number;
+  exerciseSource: ExerciseSource;
+  /** How many exercises make up one daily session. 1-10, default 5. */
+  exerciseCount: number;
 }
 
 export const DEFAULT_PRACTICE_PREFERENCES: PracticePreferences = {
   topVariants: 3,
   continuationDepth: 4,
+  exerciseSource: 'own',
+  exerciseCount: 5,
 };

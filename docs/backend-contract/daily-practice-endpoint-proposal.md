@@ -55,7 +55,11 @@ treats that as "no session" and offers Start Practice instead of Continue.
       "opponentRank": "4k",
       "boardSize": 19,
       "userSign": 1,
-      "moveNumber": 75
+      "moveNumber": 75,
+      "topVariants": 3,
+      "currentDepth": 4,
+      "selectedVariant": 0,
+      "step": 2
     },
     {
       "id": "ex-2",
@@ -66,7 +70,11 @@ treats that as "no session" and offers Start Practice instead of Continue.
       "opponentRank": "2d",
       "boardSize": 19,
       "userSign": -1,
-      "moveNumber": 118
+      "moveNumber": 118,
+      "topVariants": 3,
+      "currentDepth": 4,
+      "selectedVariant": null,
+      "step": 1
     }
   ]
 }
@@ -87,6 +95,16 @@ treats that as "no session" and offers Start Practice instead of Continue.
   mock backend (`MockPracticeService`) currently derives these from the
   game's own SGF the same way `GameListEntry` does; a real backend can do
   the same, or project them straight from the already-analysed game record.
+- `topVariants`/`currentDepth`/`selectedVariant`/`step` are this exercise's
+  own **resumable position** (handoff v4-3-kaizen-daily-practice section 9):
+  `topVariants`/`currentDepth` are snapshotted once when the exercise is
+  created from whatever `GET/PUT /practice/preferences` said at that moment,
+  fixed for the exercise's whole lifetime so a later preference change never
+  retroactively invalidates it (section 12, open question 4 — "apply from
+  the next exercise"). `selectedVariant` (null until the user's first move)
+  and `step` are updated by `PUT .../progress` below, and let "Continue
+  practice" reopen an interrupted exercise at its exact saved position
+  instead of from scratch.
 
 ### `POST /practice/today/start`
 
@@ -94,6 +112,33 @@ Creates today's session if none exists yet; **idempotent** — if one already
 exists for today, returns it unchanged rather than creating a second one or
 erroring (RF03.6: "A seleção de exercícios não muda após o início da
 sessão."). Same response body as `GET /practice/today`.
+
+### `POST /practice/today/new-round`
+
+**Not idempotent, unlike `/today/start`** — generates a fresh batch (same
+up-to-5-positions selection algorithm, same "never repeat within the new
+round" rule) even when today's original session already exists and is
+complete. Same response body shape as `GET /practice/today`.
+
+Backs Daily Practice Home's **Continue practicing** button, shown once
+today's original session is already complete, alongside Review exercises
+(which stays read-only — see `GET /practice/today`'s note above and the
+IDOR-safe result route below). It's an *optional extra* round for a chat
+that wants to keep practicing, not a replacement of the original — **it must
+never affect the streak**: today's day was already earned when the original
+round completed, and that stays true no matter how this extra round goes
+(finished, abandoned, or never even started).
+
+Concretely: this must **not** overwrite today's existing `daily_session_db`
+row (whatever unique `(chat_id, session_date)` row design section 2 picks),
+since `GET /practice/streak` below reads a day's "completed" straight off
+that row — overwriting it would un-earn today's streak the instant a new
+round starts, until that round is *also* finished. The extra round's own
+exercises/results need their own place to live (outside this proposal's
+scope to design — section 2), separate from the one row the streak reads.
+
+Response: same `SessionDto` shape as `GET /practice/today` (200, never 204 —
+a round is always created).
 
 Selection algorithm (server-side, no KataGo/GPU call — RF03.1 is explicit
 about this): pick up to 5 positions across the chat's analysed games'
@@ -134,6 +179,43 @@ default 4. The design handoff (`docs/design-handoff/v4-kaizen-daily-practice/HAN
 sections 5 and 7) does the exact ply arithmetic against default 4
 ("M = 4 gives 5 plies: you·reply·you·reply·you — 3 moves for the user") and
 is the more authoritative, recently-confirmed source — **4 is correct**, not 6.
+
+### `PUT /practice/today/exercises/{exerciseId}/progress`
+
+```json
+{ "selectedVariant": 0, "step": 2, "currentDepth": 6 }
+```
+
+Saves one exercise's resumable position (handoff v4-3-kaizen-daily-practice
+section 9) — same IDOR-by-ownership 404 as the result route above.
+`selectedVariant` is `null` until the user's first move picks one of the
+exercise's accepted candidates, after which it's fixed; `step` is the 1-based
+user move currently expected; `currentDepth` only ever grows, by Go deeper
+(`min(10, currentDepth + 2)`) — never shrinks, and is otherwise untouched by
+a later `PUT /practice/preferences` (see `GET /practice/today`'s note on
+`topVariants`/`currentDepth` being snapshotted per exercise).
+
+Called after every confirmed move, Try another line and Go deeper — *not*
+after an incorrect/illegal attempt (nothing confirmed to save) or mid the
+~900ms opponent-reply animation (transient, not a stable position).
+
+Response: `204 No Content`.
+
+### `GET /practice/streak`
+
+```json
+{ "currentStreak": 4, "last7Days": [false, true, true, true, true, true, true] }
+```
+
+`last7Days` is oldest-first, 7 entries, the last one being today. No
+dedicated table needed — both are derivable from `daily_session_db` rows
+alone: a day "counts" when that chat's session for that calendar date
+exists, has at least one exercise, and is `completed`; a day with no
+exercises available neither counts nor breaks the streak; a day with no
+session row at all (chat never opened Daily Practice Home) stops the
+backward walk, same as an unfinished day. This reads the one `daily_session_db`
+row `POST /today/new-round` above must never overwrite, precisely so an extra
+round never un-earns a day already counted here.
 
 ## 1.5. KataGo must always analyse at maximum resolution — preferences are a pure display-time slice
 
