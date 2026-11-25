@@ -89,6 +89,18 @@ export class DailyPracticeHomeComponent {
     this.telegram.showBackButton(this.backToGames);
     this.destroyRef.onDestroy(() => this.telegram.hideBackButton(this.backToGames));
     this.load();
+
+    // Telegram's WebView can suspend this page's JS (e.g. the chat switches away
+    // mid-session) and resume it later without Angular ever destroying/recreating
+    // this component — any in-flight request from that first load() may have been
+    // dropped too, leaving the screen stuck on 'loading'. Either way, refreshing on
+    // resume is what makes a just-solved exercise (or the row itself) show up
+    // correctly instead of a stale/stuck view once the chat comes back.
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') this.load();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    this.destroyRef.onDestroy(() => document.removeEventListener('visibilitychange', onVisible));
   }
 
   retry(): void {

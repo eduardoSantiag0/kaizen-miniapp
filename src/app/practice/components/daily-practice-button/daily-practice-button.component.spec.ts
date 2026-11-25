@@ -1,6 +1,6 @@
 ﻿import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { DailyPracticeButtonComponent } from './daily-practice-button.component';
 import { PracticeService } from '../../../data/practice.service';
 import type { DailyPracticeSession, PracticeExerciseRef } from '../../../data/practice.model';
@@ -23,13 +23,16 @@ function exerciseRef(overrides: Partial<PracticeExerciseRef> & Pick<PracticeExer
 
 class StubPracticeService extends PracticeService {
   session: DailyPracticeSession = { id: 's1', kind: 'daily', date: '2026-01-01', exercises: [], completed: false };
+  startTodaySessionCalls = 0;
+  startTodaySessionError = false;
 
   override getTodaySession() {
     return of(this.session);
   }
 
   override startTodaySession() {
-    return of(this.session);
+    this.startTodaySessionCalls++;
+    return this.startTodaySessionError ? throwError(() => new Error('network error')) : of(this.session);
   }
 
   override startNewRound() {
@@ -143,6 +146,26 @@ describe('DailyPracticeButtonComponent', () => {
 
     expect(fixture.nativeElement.textContent).toContain('Done for today');
     expect(fixture.nativeElement.querySelectorAll('.kz-track-node--ahead').length).toBe(0);
+  });
+
+  it('shows a retry affordance instead of silently vanishing when the session fails to load', () => {
+    stub = new StubPracticeService();
+    stub.startTodaySessionError = true;
+    TestBed.overrideProvider(PracticeService, { useValue: stub });
+    create().detectChanges();
+
+    expect(fixture.nativeElement.querySelector('a')).toBeNull();
+    const retryButton = fixture.nativeElement.querySelector('.kz-daily-error') as HTMLButtonElement;
+    expect(retryButton).not.toBeNull();
+
+    stub.startTodaySessionError = false;
+    stub.session = { id: 's1', kind: 'daily', date: '2026-01-01', completed: false, exercises: [exerciseRef({ id: 'e1', gameId: 'g1', phase: 'opening' })] };
+    retryButton.click();
+    fixture.detectChanges();
+
+    expect(stub.startTodaySessionCalls).toBe(2);
+    expect(fixture.nativeElement.querySelector('.kz-daily-error')).toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('1 exercise today');
   });
 
   it('shows the streak badge beside the box when there is a current streak, hidden at 0', () => {

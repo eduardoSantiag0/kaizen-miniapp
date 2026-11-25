@@ -1,4 +1,6 @@
-@if (screen() === 'ready' && !isEmpty()) {
+@if (screen() === 'error') {
+  <button type="button" class="kz-daily-error" (click)="retry()">Couldn't load Daily practice — Tap to retry</button>
+} @else if (screen() === 'ready' && !isEmpty()) {
   <div class="kz-daily-row">
     <a class="kz-daily-btn" routerLink="/practice" [attr.aria-label]="ariaLabel()">
       <span class="kz-daily-btn-track">
