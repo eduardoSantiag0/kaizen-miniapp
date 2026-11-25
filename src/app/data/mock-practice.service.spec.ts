@@ -46,6 +46,8 @@ describe('MockPracticeService', () => {
   let httpMock: HttpTestingController;
 
   beforeEach(() => {
+    localStorage.clear(); // sessions persist here — isolate each test
+
     TestBed.configureTestingModule({
       providers: [
         MockPracticeService,
@@ -60,7 +62,10 @@ describe('MockPracticeService', () => {
     httpMock = TestBed.inject(HttpTestingController);
   });
 
-  afterEach(() => httpMock.verify());
+  afterEach(() => {
+    httpMock.verify();
+    localStorage.clear();
+  });
 
   it('has no session before starting', (done) => {
     service.getTodaySession().subscribe((session) => {
@@ -78,12 +83,13 @@ describe('MockPracticeService', () => {
     service.startTodaySession().subscribe((session) => {
       expect(session.exercises.length).toBe(2); // g1-opening, g2-endgame — middlegame has no branch point
       expect(session.exercises.map((e) => e.gameId)).toEqual(['g1', 'g2']);
+      expect(session.kind).toBe('daily');
       expect(session.completed).toBe(false);
       done();
     });
   });
 
-  it('starting twice returns the same session (idempotent)', (done) => {
+  it('starting twice returns the same session (idempotent), same id', (done) => {
     stubHistory.dtos = [dto({ id: 'g1', openingAnalysed: EXERCISE_SGF })];
 
     service.startTodaySession().subscribe((first) => {
@@ -100,7 +106,7 @@ describe('MockPracticeService', () => {
     service.startTodaySession().subscribe((session) => {
       const exerciseId = session.exercises[0].id;
 
-      service.recordResult(exerciseId).subscribe(() => {
+      service.recordResult(session.id, exerciseId).subscribe(() => {
         service.getTodaySession().subscribe((updated) => {
           expect(updated!.exercises[0].completed).toBe(true);
           expect(updated!.completed).toBe(true);
@@ -123,16 +129,22 @@ describe('MockPracticeService', () => {
     });
   });
 
-  it('startNewRound always regenerates, unlike startTodaySession, uncompleted and still against the chat\'s own games', (done) => {
+  it('startNewRound always regenerates, unlike startTodaySession, uncompleted and still against the chat\'s own games — a new generated session, never touching the daily one', (done) => {
     stubHistory.dtos = [dto({ id: 'g1', openingAnalysed: EXERCISE_SGF })];
 
     service.startTodaySession().subscribe((first) => {
-      service.recordResult(first.exercises[0].id).subscribe(() => {
+      service.recordResult(first.id, first.exercises[0].id).subscribe(() => {
         service.startNewRound().subscribe((round) => {
+          expect(round.id).not.toBe(first.id); // never overwrites the daily session — must not affect the streak
+          expect(round.kind).toBe('generated');
           expect(round.exercises.length).toBe(1);
           expect(round.exercises[0].completed).toBe(false); // fresh, not the just-completed one replayed
           expect(round.completed).toBe(false);
-          done();
+
+          service.getTodaySession().subscribe((daily) => {
+            expect(daily!.completed).toBe(true); // the streak-earning daily session is untouched
+            done();
+          });
         });
       });
     });
@@ -186,7 +198,8 @@ describe('MockPracticeService', () => {
   it('startRandomPractice builds a session from the practice-pool alone, ignoring the chat\'s own games and the exerciseSource preference', (done) => {
     stubHistory.dtos = [dto({ id: 'g1', openingAnalysed: EXERCISE_SGF })]; // 'own' is the default — would normally be the only source
 
-    service.startRandomPractice().subscribe((session) => {
+    service.startRandomPractice(2).subscribe((session) => {
+      expect(session.kind).toBe('generated');
       expect(session.exercises.length).toBe(2);
       expect(session.exercises.map((e) => e.gameId).sort()).toEqual(['pool-1', 'pool-2']);
       done();
@@ -198,7 +211,7 @@ describe('MockPracticeService', () => {
     ]);
   });
 
-  it('honors the exerciseCount preference when capping a session, for both the chat\'s own games and startRandomPractice', (done) => {
+  it('honors the exerciseCount preference when capping the daily session', (done) => {
     stubHistory.dtos = [
       dto({ id: 'g1', openingAnalysed: EXERCISE_SGF, middlegameAnalysed: EXERCISE_SGF, endgameAnalysed: EXERCISE_SGF }),
     ];
@@ -206,6 +219,74 @@ describe('MockPracticeService', () => {
     service.setPreferences({ topVariants: 3, continuationDepth: 4, exerciseSource: 'own', exerciseCount: 2 }).subscribe(() => {
       service.startTodaySession().subscribe((session) => {
         expect(session.exercises.length).toBe(2); // capped at 2, even though 3 phases are exercise-able
+        done();
+      });
+    });
+  });
+
+  it('startRandomPractice stays capped at the requested count even against a large pool (100 games, 300 candidate phases), independent of the exerciseCount preference', (done) => {
+    const largePool = Array.from({ length: 100 }, (_, i) => dto({ id: `pool-${i}`, openingAnalysed: EXERCISE_SGF }));
+
+    service.setPreferences({ topVariants: 3, continuationDepth: 4, exerciseSource: 'own', exerciseCount: 2 }).subscribe(() => {
+      service.startRandomPractice(7).subscribe((session) => {
+        expect(session.exercises.length).toBe(7); // the dialog's own count, not the exerciseCount preference (2)
+        done();
+      });
+
+      httpMock.expectOne('practice-pool/practice-pool.json').flush(largePool);
+    });
+  });
+
+  it('startRandomPractice never replaces the daily session or a previous generated one — every call adds a new session', (done) => {
+    stubHistory.dtos = [dto({ id: 'g1', openingAnalysed: EXERCISE_SGF })];
+    const pool = [dto({ id: 'pool-1', openingAnalysed: EXERCISE_SGF }), dto({ id: 'pool-2', openingAnalysed: EXERCISE_SGF })];
+
+    service.startTodaySession().subscribe((daily) => {
+      service.startRandomPractice(1).subscribe((firstRound) => {
+        // practice-pool.json is fetched once and cached (shareReplay) — the second
+        // call below reuses it synchronously, no second HTTP request.
+        service.startRandomPractice(1).subscribe((secondRound) => {
+          expect(firstRound.id).not.toBe(secondRound.id);
+          expect(firstRound.id).not.toBe(daily.id);
+
+          service.listSessions().subscribe((all) => {
+            expect(all.map((s) => s.id).sort()).toEqual([daily.id, firstRound.id, secondRound.id].sort());
+            expect(all.filter((s) => s.kind === 'daily').length).toBe(1);
+            expect(all.filter((s) => s.kind === 'generated').length).toBe(2);
+            done();
+          });
+        });
+      });
+
+      httpMock.expectOne('practice-pool/practice-pool.json').flush(pool);
+    });
+  });
+
+  it('getSession returns a specific session by id, daily or generated, and null for an unknown id', (done) => {
+    stubHistory.dtos = [dto({ id: 'g1', openingAnalysed: EXERCISE_SGF })];
+
+    service.startTodaySession().subscribe((daily) => {
+      service.getSession(daily.id).subscribe((found) => {
+        expect(found?.id).toBe(daily.id);
+
+        service.getSession('does-not-exist').subscribe((missing) => {
+          expect(missing).toBeNull();
+          done();
+        });
+      });
+    });
+  });
+
+  it('sessions persist to localStorage, so a brand new service instance (simulating a reload) still finds them', (done) => {
+    stubHistory.dtos = [dto({ id: 'g1', openingAnalysed: EXERCISE_SGF })];
+
+    service.startTodaySession().subscribe((daily) => {
+      // A second, independently-constructed instance (not TestBed's cached singleton) against the same localStorage.
+      const reloaded = TestBed.runInInjectionContext(() => new MockPracticeService());
+
+      reloaded.getSession(daily.id).subscribe((found) => {
+        expect(found?.id).toBe(daily.id);
+        expect(found?.exercises.length).toBe(daily.exercises.length);
         done();
       });
     });

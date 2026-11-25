@@ -1,0 +1,85 @@
+.kz-rpd-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border: none;
+  padding: 0;
+}
+
+.kz-rpd-card {
+  position: fixed;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  z-index: 21;
+  width: 100%;
+  max-width: 390px;
+  padding: 20px 16px calc(20px + env(safe-area-inset-bottom, 0px));
+  /* --kz-bar-bg is a near-transparent tint meant to sit over other opaque
+     layers (e.g. the paper background) — this card has nothing behind it but
+     the blurred overlay, so it needs the page's own solid base color instead. */
+  background: var(--kz-base);
+  border-radius: 12px 12px 0 0;
+  box-shadow: 0 -1px 0 var(--kz-bar-edge);
+}
+
+.kz-rpd-title {
+  margin: 0;
+  font: 600 17px/22px 'IBM Plex Sans', sans-serif;
+  color: var(--kz-ink);
+}
+
+.kz-rpd-sentence {
+  margin: 6px 0 0;
+  font: 400 14px/20px 'IBM Plex Sans', sans-serif;
+  color: var(--kz-hint);
+}
+
+.kz-rpd-value {
+  margin-top: 18px;
+  text-align: center;
+  font: 500 30px/34px 'IBM Plex Mono', monospace;
+  color: var(--kz-ink);
+}
+
+.kz-rpd-slider {
+  width: 100%;
+  height: 44px;
+  margin-top: 6px;
+  accent-color: var(--kz-primary);
+}
+
+.kz-rpd-slider-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: -8px;
+  font: 400 12px/1 'IBM Plex Mono', monospace;
+  color: var(--kz-hint);
+}
+
+.kz-rpd-confirm {
+  display: block;
+  width: 100%;
+  height: 52px;
+  margin-top: 20px;
+  border: none;
+  border-radius: 3px;
+  background: var(--kz-primary);
+  color: var(--kz-on-primary);
+  font: 700 17px/1 'IBM Plex Sans', sans-serif;
+}
+
+.kz-rpd-cancel {
+  display: block;
+  width: 100%;
+  height: 44px;
+  margin-top: 10px;
+  border: none;
+  border-radius: 3px;
+  background: none;
+  color: var(--kz-hint);
+  font: 600 15px/1 'IBM Plex Sans', sans-serif;
+}

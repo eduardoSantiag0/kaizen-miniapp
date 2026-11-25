@@ -20,6 +20,11 @@ const PHASE_ORDER: { phase: GamePhase; key: keyof GameHistoryDto }[] = [
  * A session's own `date` needs to track the user's local day, same as the
  * SGF DT[] dates game-list-format.ts's parseLocalDate reads.
  */
+/** Unique id for a new session — `crypto.randomUUID()` is available in every environment this app actually runs in (secure context: HTTPS/Telegram WebView, or localhost in dev). */
+export function newSessionId(): string {
+  return crypto.randomUUID();
+}
+
 export function todayIso(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;

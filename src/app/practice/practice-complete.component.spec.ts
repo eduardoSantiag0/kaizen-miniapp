@@ -24,7 +24,7 @@ function exerciseRef(overrides: Partial<PracticeExerciseRef> & Pick<PracticeExer
 }
 
 class StubPracticeService extends PracticeService {
-  session: DailyPracticeSession = { date: '2026-01-01', exercises: [], completed: true };
+  session: DailyPracticeSession = { id: 's1', kind: 'daily', date: '2026-01-01', exercises: [], completed: true };
   streak: StreakInfo = { currentStreak: 1, last7Days: [false, false, false, false, false, false, true] };
 
   override getTodaySession() {
@@ -40,6 +40,14 @@ class StubPracticeService extends PracticeService {
   }
 
   override startRandomPractice() {
+    return of(this.session);
+  }
+
+  override listSessions() {
+    return of([this.session]);
+  }
+
+  override getSession() {
     return of(this.session);
   }
 
@@ -86,7 +94,7 @@ describe('PracticeCompleteComponent', () => {
 
   it('shows "Your streak starts today" on the first day, with no number', () => {
     create(
-      { date: '2026-01-01', completed: true, exercises: [exerciseRef({ id: 'e1' })] },
+      { id: 's1', kind: 'daily', date: '2026-01-01', completed: true, exercises: [exerciseRef({ id: 'e1' })] },
       { currentStreak: 1, last7Days: [false, false, false, false, false, false, true] },
     ).detectChanges();
 
@@ -96,7 +104,7 @@ describe('PracticeCompleteComponent', () => {
 
   it('shows the plain count once the streak is more than one day', () => {
     create(
-      { date: '2026-01-01', completed: true, exercises: [exerciseRef({ id: 'e1' }), exerciseRef({ id: 'e2' })] },
+      { id: 's1', kind: 'daily', date: '2026-01-01', completed: true, exercises: [exerciseRef({ id: 'e1' }), exerciseRef({ id: 'e2' })] },
       { currentStreak: 5, last7Days: [false, false, true, true, true, true, true] },
     ).detectChanges();
 
@@ -109,7 +117,7 @@ describe('PracticeCompleteComponent', () => {
 
   it('no stats, points or ranks — only the completed count appears in the feedback line', () => {
     create(
-      { date: '2026-01-01', completed: true, exercises: [exerciseRef({ id: 'e1' })] },
+      { id: 's1', kind: 'daily', date: '2026-01-01', completed: true, exercises: [exerciseRef({ id: 'e1' })] },
       { currentStreak: 1, last7Days: [false, false, false, false, false, false, true] },
     ).detectChanges();
 
@@ -119,7 +127,7 @@ describe('PracticeCompleteComponent', () => {
 
   it('Done navigates to Games', () => {
     create(
-      { date: '2026-01-01', completed: true, exercises: [exerciseRef({ id: 'e1' })] },
+      { id: 's1', kind: 'daily', date: '2026-01-01', completed: true, exercises: [exerciseRef({ id: 'e1' })] },
       { currentStreak: 1, last7Days: [false, false, false, false, false, false, true] },
     ).detectChanges();
     const router = TestBed.inject(Router);
@@ -132,7 +140,7 @@ describe('PracticeCompleteComponent', () => {
 
   it('BackButton also returns to Games', () => {
     create(
-      { date: '2026-01-01', completed: true, exercises: [exerciseRef({ id: 'e1' })] },
+      { id: 's1', kind: 'daily', date: '2026-01-01', completed: true, exercises: [exerciseRef({ id: 'e1' })] },
       { currentStreak: 1, last7Days: [false, false, false, false, false, false, true] },
     ).detectChanges();
     const router = TestBed.inject(Router);

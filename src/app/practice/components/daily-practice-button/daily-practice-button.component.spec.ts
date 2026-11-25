@@ -22,7 +22,7 @@ function exerciseRef(overrides: Partial<PracticeExerciseRef> & Pick<PracticeExer
 }
 
 class StubPracticeService extends PracticeService {
-  session: DailyPracticeSession = { date: '2026-01-01', exercises: [], completed: false };
+  session: DailyPracticeSession = { id: 's1', kind: 'daily', date: '2026-01-01', exercises: [], completed: false };
 
   override getTodaySession() {
     return of(this.session);
@@ -37,6 +37,14 @@ class StubPracticeService extends PracticeService {
   }
 
   override startRandomPractice() {
+    return of(this.session);
+  }
+
+  override listSessions() {
+    return of([this.session]);
+  }
+
+  override getSession() {
     return of(this.session);
   }
 
@@ -83,6 +91,8 @@ describe('DailyPracticeButtonComponent', () => {
   it('shows the exercise count and links to /practice before starting', () => {
     stub = new StubPracticeService();
     stub.session = {
+      id: 's1',
+      kind: 'daily',
       date: '2026-01-01',
       completed: false,
       exercises: [
@@ -103,6 +113,8 @@ describe('DailyPracticeButtonComponent', () => {
   it('shows progress once at least one exercise is solved', () => {
     stub = new StubPracticeService();
     stub.session = {
+      id: 's1',
+      kind: 'daily',
       date: '2026-01-01',
       completed: false,
       exercises: [
@@ -120,6 +132,8 @@ describe('DailyPracticeButtonComponent', () => {
   it('shows "Done for today" once every exercise is solved, every track node filled', () => {
     stub = new StubPracticeService();
     stub.session = {
+      id: 's1',
+      kind: 'daily',
       date: '2026-01-01',
       completed: true,
       exercises: [exerciseRef({ id: 'e1', gameId: 'g1', phase: 'opening', completed: true })],
@@ -134,6 +148,8 @@ describe('DailyPracticeButtonComponent', () => {
   it('shows the streak badge beside the box when there is a current streak, hidden at 0', () => {
     stub = new StubPracticeService();
     stub.session = {
+      id: 's1',
+      kind: 'daily',
       date: '2026-01-01',
       completed: false,
       exercises: [exerciseRef({ id: 'e1', gameId: 'g1', phase: 'opening' })],
@@ -144,6 +160,8 @@ describe('DailyPracticeButtonComponent', () => {
 
     stub = new StubPracticeService();
     stub.session = {
+      id: 's1',
+      kind: 'daily',
       date: '2026-01-01',
       completed: false,
       exercises: [exerciseRef({ id: 'e1', gameId: 'g1', phase: 'opening' })],

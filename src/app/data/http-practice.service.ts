@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { map, Observable, of, switchMap } from 'rxjs';
+import { catchError, map, Observable, of, switchMap, throwError } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { TelegramService } from '../core/telegram.service';
 import { PracticePoolService } from './practice-pool.service';
@@ -8,7 +8,7 @@ import { PracticeService } from './practice.service';
 import type { ExerciseProgress } from '../exercise/exercise-state';
 import type { DailyPracticeSession, PracticePreferences, StreakInfo } from './practice.model';
 import { SgfParserService } from '../sgf/sgf-parser.service';
-import { cloneSession, pickExercises, todayIso } from './practice-exercise-picker';
+import { cloneSession, newSessionId, pickExercises } from './practice-exercise-picker';
 
 /**
  * Real HTTP-backed PracticeService, per
@@ -28,19 +28,20 @@ export class HttpPracticeService extends PracticeService {
 
   /**
    * "Random practice" never touches the server at all — it's bundled
-   * frontend test data (see startRandomPractice), so once active it also
-   * answers getTodaySession/startTodaySession/recordResult/saveProgress
-   * locally instead of asking the backend about a session it's never heard
-   * of. Cleared by startNewRound, which is a genuine server round.
+   * frontend test data (see startRandomPractice's own doc comment on
+   * PracticeService), so these `kind: 'generated'` sessions live purely in
+   * this field, never sent anywhere. Every other session (the one `kind:
+   * 'daily'` session, and any `kind: 'generated'` one from "Continue
+   * practicing"/startNewRound) is real server state — listSessions/
+   * getSession below merge the two sources for the caller.
    */
-  private localSession: DailyPracticeSession | null = null;
+  private localPoolSessions: DailyPracticeSession[] = [];
 
   private get authHeaders() {
     return { headers: { Authorization: `tma ${this.telegram.initData}` } };
   }
 
   getTodaySession(): Observable<DailyPracticeSession | null> {
-    if (this.localSession) return of(cloneSession(this.localSession));
     return this.http.get<DailyPracticeSession | null>(
       `${environment.apiBaseUrl}${HttpPracticeService.BASE}/today`,
       this.authHeaders,
@@ -48,7 +49,6 @@ export class HttpPracticeService extends PracticeService {
   }
 
   startTodaySession(): Observable<DailyPracticeSession> {
-    if (this.localSession) return of(cloneSession(this.localSession));
     return this.http.post<DailyPracticeSession>(
       `${environment.apiBaseUrl}${HttpPracticeService.BASE}/today/start`,
       null,
@@ -57,7 +57,6 @@ export class HttpPracticeService extends PracticeService {
   }
 
   startNewRound(): Observable<DailyPracticeSession> {
-    this.localSession = null; // a real new round comes from the server again, not the local test pool
     return this.http.post<DailyPracticeSession>(
       `${environment.apiBaseUrl}${HttpPracticeService.BASE}/today/new-round`,
       null,
@@ -65,36 +64,54 @@ export class HttpPracticeService extends PracticeService {
     );
   }
 
-  /**
-   * See PracticeService.startRandomPractice's own doc comment — entirely
-   * local test data, but still honors the exerciseCount preference (fetched
-   * from the real backend, same as any other read), same as a normal session.
-   */
-  startRandomPractice(): Observable<DailyPracticeSession> {
+  /** See PracticeService.startRandomPractice's own doc comment — entirely local test data, never sent to the server. `count` comes from the dialog shown when the button is tapped, not from any preference. */
+  startRandomPractice(count: number): Observable<DailyPracticeSession> {
     return this.getPreferences().pipe(
       switchMap((prefs) =>
         this.practicePool.pool$.pipe(
           map((pool) => {
             const exercises = pickExercises(this.sgfParser, pool, {
-              count: prefs.exerciseCount,
+              count,
               shuffled: true,
               topVariants: prefs.topVariants,
               continuationDepth: prefs.continuationDepth,
             });
-            this.localSession = { date: todayIso(), exercises, completed: exercises.length === 0 };
-            return cloneSession(this.localSession);
+            const session: DailyPracticeSession = {
+              id: newSessionId(),
+              kind: 'generated',
+              date: new Date().toISOString().slice(0, 10),
+              exercises,
+              completed: exercises.length === 0,
+            };
+            this.localPoolSessions.push(session);
+            return cloneSession(session);
           }),
         ),
       ),
     );
   }
 
-  recordResult(exerciseId: string): Observable<void> {
-    if (this.localSession) {
-      const exercise = this.localSession.exercises.find((e) => e.id === exerciseId);
+  listSessions(): Observable<DailyPracticeSession[]> {
+    return this.http
+      .get<DailyPracticeSession[]>(`${environment.apiBaseUrl}${HttpPracticeService.BASE}/sessions`, this.authHeaders)
+      .pipe(map((serverSessions) => [...serverSessions, ...this.localPoolSessions]));
+  }
+
+  getSession(sessionId: string): Observable<DailyPracticeSession | null> {
+    const localPool = this.localPoolSessions.find((s) => s.id === sessionId);
+    if (localPool) return of(cloneSession(localPool));
+    return this.http
+      .get<DailyPracticeSession>(`${environment.apiBaseUrl}${HttpPracticeService.BASE}/sessions/${sessionId}`, this.authHeaders)
+      .pipe(catchError((error) => (error.status === 404 ? of(null) : throwError(() => error))));
+  }
+
+  recordResult(sessionId: string, exerciseId: string): Observable<void> {
+    const session = this.localPoolSessions.find((s) => s.id === sessionId);
+    if (session) {
+      const exercise = session.exercises.find((e) => e.id === exerciseId);
       if (exercise) {
         exercise.completed = true;
-        this.localSession.completed = this.localSession.exercises.every((e) => e.completed);
+        session.completed = session.exercises.every((e) => e.completed);
       }
       return of(undefined);
     }
@@ -105,9 +122,10 @@ export class HttpPracticeService extends PracticeService {
     );
   }
 
-  saveProgress(exerciseId: string, progress: ExerciseProgress): Observable<void> {
-    if (this.localSession) {
-      const exercise = this.localSession.exercises.find((e) => e.id === exerciseId);
+  saveProgress(sessionId: string, exerciseId: string, progress: ExerciseProgress): Observable<void> {
+    const session = this.localPoolSessions.find((s) => s.id === sessionId);
+    if (session) {
+      const exercise = session.exercises.find((e) => e.id === exerciseId);
       if (exercise) {
         exercise.selectedVariant = progress.selectedVariant;
         exercise.step = progress.step;

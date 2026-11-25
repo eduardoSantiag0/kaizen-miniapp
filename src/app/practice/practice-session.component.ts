@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, input, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { PracticeService } from '../data/practice.service';
 import type { DailyPracticeSession, PracticeExerciseRef } from '../data/practice.model';
@@ -10,11 +10,16 @@ type Screen = 'loading' | 'ready' | 'error';
 
 /**
  * The thin Daily Practice session wrapper (handoff v4-kaizen-daily-practice
- * section 6/11, replacing the old DailyPracticeSessionComponent): walks the
- * session's exercises by rebinding ExercisePageComponent's gameId/phase per
+ * section 6/11): walks the session's exercises by rebinding
+ * ExercisePageComponent's gameId/phase per
  * exercise, exactly the reusability hooks that component's own inputs/
  * outputs were built for — it owns session-position arithmetic and
  * PracticeService recording, nothing about the board/engine itself.
+ *
+ * `id` (bound from the route, withComponentInputBinding — same pattern
+ * ExercisePageComponent's own `gameId` uses) says which session to open:
+ * the one always-present daily session, or one the chat generated via
+ * "Random practice" — Daily Practice Home's session list picks which.
  */
 @Component({
   selector: 'kz-practice-session',
@@ -27,11 +32,16 @@ export class PracticeSessionComponent {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
 
+  readonly id = input.required<string>();
+
   readonly screen = signal<Screen>('loading');
   private readonly session = signal<DailyPracticeSession | null>(null);
   private readonly currentExerciseId = signal<string | null>(null);
   /** "Review exercises" (handoff section 8): starts at exercise 1 regardless of completion, and never re-records a result — see onExerciseSolved. */
   private readonly reviewMode = signal(false);
+
+  /** A generated ("Random practice") session has no Daily Practice Home streak screen to land on and, outside the real Telegram app, no native BackButton either — so it gets its own on-screen back control (the daily session still relies solely on Telegram's native one, by design — see ExercisePageComponent's showContextBack). */
+  readonly isGeneratedSession = computed(() => this.session()?.kind === 'generated');
 
   readonly currentExercise = computed<PracticeExerciseRef | null>(() => {
     const session = this.session();
@@ -64,11 +74,18 @@ export class PracticeSessionComponent {
 
   constructor() {
     this.reviewMode.set(this.route.snapshot.queryParamMap.get('review') === '1');
-    this.load();
+    // `id` (required input) has no value yet during construction — same reason
+    // ExercisePageComponent loads via effect() on its own gameId input rather
+    // than reading it directly in the constructor body.
+    effect(() => this.load(this.id()));
   }
 
   retry(): void {
-    this.load();
+    this.load(this.id());
+  }
+
+  back(): void {
+    this.router.navigate(['/practice']);
   }
 
   /** ExercisePageComponent's exerciseSolved (handoff section 6) — skipped once already recorded, so reviewing an already-solved exercise never changes the session result (handoff section 8). */
@@ -76,7 +93,7 @@ export class PracticeSessionComponent {
     const exercise = this.currentExercise();
     if (!exercise || exercise.completed) return;
 
-    this.practice.recordResult(exercise.id).subscribe(() => {
+    this.practice.recordResult(this.id(), exercise.id).subscribe(() => {
       this.session.update((session) => {
         if (!session) return session;
         const exercises = session.exercises.map((e) => (e.id === exercise.id ? { ...e, completed: true } : e));
@@ -90,7 +107,7 @@ export class PracticeSessionComponent {
     const exercise = this.currentExercise();
     if (!exercise || exercise.completed) return;
 
-    this.practice.saveProgress(exercise.id, progress).subscribe();
+    this.practice.saveProgress(this.id(), exercise.id, progress).subscribe();
     this.session.update((session) => {
       if (!session) return session;
       const exercises = session.exercises.map((e) => (e.id === exercise.id ? { ...e, ...progress } : e));
@@ -107,19 +124,26 @@ export class PracticeSessionComponent {
     const next = session.exercises[this.currentIndex() + 1];
     if (next) {
       this.currentExerciseId.set(next.id);
-    } else {
+      return;
+    }
+
+    if (session.kind === 'daily') {
       // Finish practice (last exercise) saves the session and opens the completion
       // screen; Done there returns to Games (handoff v4-3-kaizen-daily-practice section 6/8).
       this.router.navigate(['/practice/complete']);
+    } else {
+      // A generated ("Random practice") session never affects the streak, so it gets
+      // no completion screen — just back to the session list on Daily Practice Home.
+      this.router.navigate(['/practice']);
     }
   }
 
-  private load(): void {
+  private load(id: string): void {
     this.screen.set('loading');
 
-    this.practice.startTodaySession().subscribe({
+    this.practice.getSession(id).subscribe({
       next: (session) => {
-        if (session.exercises.length === 0) {
+        if (!session || session.exercises.length === 0) {
           this.router.navigate(['/practice']);
           return;
         }

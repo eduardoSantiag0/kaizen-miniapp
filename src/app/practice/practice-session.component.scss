@@ -25,6 +25,19 @@
   margin: 6px 0 0;
 }
 
+.kz-session-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 32px;
+  margin: 8px 0 0 8px;
+  padding: 0 8px;
+  background: none;
+  border: none;
+  font: 600 14px/1 'IBM Plex Sans', sans-serif;
+  color: var(--kz-hint);
+}
+
 .kz-session-retry {
   display: inline-block;
   margin-top: 16px;

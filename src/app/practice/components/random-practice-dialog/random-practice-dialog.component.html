@@ -1,0 +1,28 @@
+@if (open()) {
+  <button type="button" class="kz-rpd-overlay" aria-label="Close" (click)="cancel()"></button>
+
+  <div class="kz-rpd-card" role="dialog" aria-modal="true" aria-labelledby="kzRpdTitle">
+    <h2 class="kz-rpd-title" id="kzRpdTitle">How many exercises?</h2>
+    <p class="kz-rpd-sentence">Pick how many problems this round of Random practice should have.</p>
+
+    <div class="kz-rpd-value">{{ count() }}</div>
+    <input
+      class="kz-rpd-slider"
+      type="range"
+      min="1"
+      [max]="maxCount"
+      step="1"
+      [value]="count()"
+      (input)="onCountInput($any($event.target).value)"
+      aria-labelledby="kzRpdTitle"
+      [attr.aria-valuetext]="count() + ' exercises'"
+    />
+    <div class="kz-rpd-slider-labels" aria-hidden="true">
+      <span>1</span>
+      <span>{{ maxCount }}</span>
+    </div>
+
+    <button type="button" class="kz-rpd-confirm" (click)="confirm()">Start</button>
+    <button type="button" class="kz-rpd-cancel" (click)="cancel()">Cancel</button>
+  </div>
+}

@@ -31,10 +31,10 @@ function exerciseRef(overrides: Partial<PracticeExerciseRef> & Pick<PracticeExer
 }
 
 class StubPracticeService extends PracticeService {
-  session: DailyPracticeSession = { date: '2026-01-01', exercises: [], completed: false };
+  session: DailyPracticeSession = { id: 's1', kind: 'daily', date: '2026-01-01', exercises: [], completed: false };
   preferences: PracticePreferences = { topVariants: 3, continuationDepth: 4, exerciseSource: 'own' as const, exerciseCount: 5 };
-  recordedResults: { id: string }[] = [];
-  savedProgress: { id: string; progress: ExerciseProgress }[] = [];
+  recordedResults: { sessionId: string; id: string }[] = [];
+  savedProgress: { sessionId: string; id: string; progress: ExerciseProgress }[] = [];
 
   override getTodaySession() {
     return of(this.session);
@@ -52,8 +52,16 @@ class StubPracticeService extends PracticeService {
     return of(this.session);
   }
 
-  override recordResult(exerciseId: string) {
-    this.recordedResults.push({ id: exerciseId });
+  override listSessions() {
+    return of([this.session]);
+  }
+
+  override getSession(sessionId: string) {
+    return of(this.session.id === sessionId ? this.session : null);
+  }
+
+  override recordResult(sessionId: string, exerciseId: string) {
+    this.recordedResults.push({ sessionId, id: exerciseId });
     const exercise = this.session.exercises.find((e) => e.id === exerciseId);
     if (exercise) {
       exercise.completed = true;
@@ -69,8 +77,8 @@ class StubPracticeService extends PracticeService {
     return of(undefined);
   }
 
-  override saveProgress(exerciseId: string, progress: ExerciseProgress) {
-    this.savedProgress.push({ id: exerciseId, progress });
+  override saveProgress(sessionId: string, exerciseId: string, progress: ExerciseProgress) {
+    this.savedProgress.push({ sessionId, id: exerciseId, progress });
     const exercise = this.session.exercises.find((e) => e.id === exerciseId);
     if (exercise) {
       exercise.selectedVariant = progress.selectedVariant;
@@ -146,11 +154,14 @@ describe('PracticeSessionComponent', () => {
     stub = TestBed.inject(PracticeService) as unknown as StubPracticeService;
     stub.session = session;
     fixture = TestBed.createComponent(PracticeSessionComponent);
+    fixture.componentRef.setInput('id', session.id);
     return fixture;
   }
 
   it('opens the first unsolved exercise, not the first in session order', fakeAsync(() => {
     create({
+      id: 's1',
+      kind: 'daily',
       date: '2026-01-01',
       completed: false,
       exercises: [
@@ -169,6 +180,8 @@ describe('PracticeSessionComponent', () => {
   it('review mode always opens exercise 1, even when every exercise is already solved', fakeAsync(() => {
     create(
       {
+        id: 's1',
+        kind: 'daily',
         date: '2026-01-01',
         completed: true,
         exercises: [
@@ -185,8 +198,10 @@ describe('PracticeSessionComponent', () => {
     expect(fixture.componentInstance.currentExercise()?.id).toBe('e1');
   }));
 
-  it('records the result through PracticeService when a fresh exercise is solved', fakeAsync(() => {
+  it('records the result through PracticeService (with this session\'s own id) when a fresh exercise is solved', fakeAsync(() => {
     create({
+      id: 's1',
+      kind: 'daily',
       date: '2026-01-01',
       completed: false,
       exercises: [exerciseRef({ id: 'e1', gameId: 'g1' })],
@@ -197,12 +212,14 @@ describe('PracticeSessionComponent', () => {
 
     fixture.componentInstance.onExerciseSolved();
 
-    expect(stub.recordedResults).toEqual([{ id: 'e1' }]);
+    expect(stub.recordedResults).toEqual([{ sessionId: 's1', id: 'e1' }]);
   }));
 
   it('never re-records a result for an already-completed exercise (review mode)', fakeAsync(() => {
     create(
       {
+        id: 's1',
+        kind: 'daily',
         date: '2026-01-01',
         completed: true,
         exercises: [exerciseRef({ id: 'e1', gameId: 'g1', completed: true })],
@@ -218,8 +235,10 @@ describe('PracticeSessionComponent', () => {
     expect(stub.recordedResults).toEqual([]);
   }));
 
-  it('onDailyNext advances to the next exercise, and opens the completion screen on the last one', fakeAsync(() => {
+  it('onDailyNext advances to the next exercise, and opens the completion screen on the last one (daily session)', fakeAsync(() => {
     create({
+      id: 's1',
+      kind: 'daily',
       date: '2026-01-01',
       completed: false,
       exercises: [exerciseRef({ id: 'e1', gameId: 'g1' }), exerciseRef({ id: 'e2', gameId: 'g2' })],
@@ -241,8 +260,63 @@ describe('PracticeSessionComponent', () => {
     expect(router.navigate).toHaveBeenCalledWith(['/practice/complete']);
   }));
 
-  it('onProgressChanged saves through PracticeService and updates the local session', fakeAsync(() => {
+  it('onDailyNext on the last exercise of a generated session returns to the session list, not the completion screen', fakeAsync(() => {
     create({
+      id: 'random-1',
+      kind: 'generated',
+      date: '2026-01-01',
+      completed: false,
+      exercises: [exerciseRef({ id: 'e1', gameId: 'g1' })],
+    });
+    fixture.detectChanges();
+    tick();
+    fixture.detectChanges();
+
+    const router = TestBed.inject(Router);
+    spyOn(router, 'navigate');
+    fixture.componentInstance.onDailyNext();
+    expect(router.navigate).toHaveBeenCalledWith(['/practice']);
+  }));
+
+  it('a generated session shows its own on-screen back button (no Telegram chrome to rely on), a daily session does not', fakeAsync(() => {
+    create({
+      id: 'random-1',
+      kind: 'generated',
+      date: '2026-01-01',
+      completed: false,
+      exercises: [exerciseRef({ id: 'e1', gameId: 'g1' })],
+    });
+    fixture.detectChanges();
+    tick();
+    fixture.detectChanges();
+
+    const router = TestBed.inject(Router);
+    spyOn(router, 'navigate');
+    const back = fixture.nativeElement.querySelector('.kz-session-back') as HTMLButtonElement;
+    expect(back).not.toBeNull();
+    back.click();
+    expect(router.navigate).toHaveBeenCalledWith(['/practice']);
+  }));
+
+  it('a daily session has no on-screen back button — Telegram\'s native BackButton is the only way back', fakeAsync(() => {
+    create({
+      id: 's1',
+      kind: 'daily',
+      date: '2026-01-01',
+      completed: false,
+      exercises: [exerciseRef({ id: 'e1', gameId: 'g1' })],
+    });
+    fixture.detectChanges();
+    tick();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.kz-session-back')).toBeNull();
+  }));
+
+  it('onProgressChanged saves through PracticeService (with this session\'s own id) and updates the local session', fakeAsync(() => {
+    create({
+      id: 's1',
+      kind: 'daily',
       date: '2026-01-01',
       completed: false,
       exercises: [exerciseRef({ id: 'e1', gameId: 'g1' })],
@@ -254,7 +328,7 @@ describe('PracticeSessionComponent', () => {
 
     fixture.componentInstance.onProgressChanged({ selectedVariant: 0, step: 2, currentDepth: 6 });
 
-    expect(stub.savedProgress).toEqual([{ id: 'e1', progress: { selectedVariant: 0, step: 2, currentDepth: 6 } }]);
+    expect(stub.savedProgress).toEqual([{ sessionId: 's1', id: 'e1', progress: { selectedVariant: 0, step: 2, currentDepth: 6 } }]);
     expect(fixture.componentInstance.currentExercise()?.selectedVariant).toBe(0);
     expect(fixture.componentInstance.currentExercise()?.step).toBe(2);
     expect(fixture.componentInstance.currentExercise()?.currentDepth).toBe(6);
@@ -263,6 +337,8 @@ describe('PracticeSessionComponent', () => {
   it('onProgressChanged never rewrites an already-completed exercise (review mode)', fakeAsync(() => {
     create(
       {
+        id: 's1',
+        kind: 'daily',
         date: '2026-01-01',
         completed: true,
         exercises: [exerciseRef({ id: 'e1', gameId: 'g1', completed: true, step: 3 })],
@@ -280,6 +356,8 @@ describe('PracticeSessionComponent', () => {
 
   it('passes the exercise its own saved position as the resume progress', fakeAsync(() => {
     create({
+      id: 's1',
+      kind: 'daily',
       date: '2026-01-01',
       completed: false,
       exercises: [exerciseRef({ id: 'e1', gameId: 'g1', selectedVariant: 0, step: 2, currentDepth: 6 })],
@@ -292,7 +370,7 @@ describe('PracticeSessionComponent', () => {
   }));
 
   it('renders the exercise-page for the current exercise, with Telegram back returning to /practice (daily mode)', fakeAsync(() => {
-    create({ date: '2026-01-01', completed: false, exercises: [exerciseRef({ id: 'e1', gameId: 'g1' })] });
+    create({ id: 's1', kind: 'daily', date: '2026-01-01', completed: false, exercises: [exerciseRef({ id: 'e1', gameId: 'g1' })] });
     const telegram = TestBed.inject(TelegramService);
     spyOn(telegram, 'showBackButton');
     fixture.detectChanges();

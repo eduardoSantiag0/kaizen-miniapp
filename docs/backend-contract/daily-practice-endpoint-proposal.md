@@ -43,6 +43,8 @@ treats that as "no session" and offers Start Practice instead of Continue.
 
 ```json
 {
+  "id": "<uuid>",
+  "kind": "daily",
   "date": "2026-11-24",
   "completed": false,
   "exercises": [
@@ -95,6 +97,11 @@ treats that as "no session" and offers Start Practice instead of Continue.
   mock backend (`MockPracticeService`) currently derives these from the
   game's own SGF the same way `GameListEntry` does; a real backend can do
   the same, or project them straight from the already-analysed game record.
+- `id`/`kind` identify the session itself (`kind` is `"daily"` or
+  `"generated"` — see `POST /today/new-round` and `GET /sessions` below).
+  A chat has at most one `"daily"` session per calendar day (the one
+  `GET /practice/streak` reads), and any number of `"generated"` extra
+  rounds, none of which ever affect the streak.
 - `topVariants`/`currentDepth`/`selectedVariant`/`step` are this exercise's
   own **resumable position** (handoff v4-3-kaizen-daily-practice section 9):
   `topVariants`/`currentDepth` are snapshotted once when the exercise is
@@ -129,23 +136,45 @@ never affect the streak**: today's day was already earned when the original
 round completed, and that stays true no matter how this extra round goes
 (finished, abandoned, or never even started).
 
-Concretely: this must **not** overwrite today's existing `daily_session_db`
-row (whatever unique `(chat_id, session_date)` row design section 2 picks),
-since `GET /practice/streak` below reads a day's "completed" straight off
-that row — overwriting it would un-earn today's streak the instant a new
-round starts, until that round is *also* finished. The extra round's own
-exercises/results need their own place to live (outside this proposal's
-scope to design — section 2), separate from the one row the streak reads.
+Concretely: this creates a brand new `daily_session_db` row with
+`kind: "generated"` rather than touching today's `kind: "daily"` row —
+`GET /practice/streak` below only ever reads `kind: "daily"` rows, so a new
+round can never un-earn today's streak no matter how it goes (finished,
+abandoned, or never even started). The unique `(chat_id, session_date)`
+constraint applies only among `kind: "daily"` rows (a partial index), so any
+number of `"generated"` rows can coexist for the same chat and day.
 
-Response: same `SessionDto` shape as `GET /practice/today` (200, never 204 —
-a round is always created).
+Response: same `SessionDto` shape as `GET /practice/today`, but with
+`kind: "generated"` and a fresh `id` (200, never 204 — a round is always
+created).
 
 Selection algorithm (server-side, no KataGo/GPU call — RF03.1 is explicit
 about this): pick up to 5 positions across the chat's analysed games'
 opening/middlegame/endgame SGFs (same universe `GET /history` already
-exposes), preferring ones never used in a prior session for this chat,
-never repeating the same position twice within the new session, falling
-back to reuse if fewer than 5 unused positions exist.
+exposes), preferring ones never used in **any** prior session for this chat
+(daily or generated), never repeating the same position twice within the
+new session, falling back to reuse if fewer than 5 unused positions exist.
+
+### `GET /practice/sessions`
+
+Every session for the requesting chat — the one `kind: "daily"` session (if
+started today) plus any `kind: "generated"` extra rounds, most recently
+created first. Drives Daily Practice Home's session list (the chat picks
+one to open; opening it loads that specific session's exercises, not
+necessarily today's). Each entry is the same `SessionDto` shape as
+`GET /practice/today`.
+
+Note: "Random practice" sessions never appear here — per
+`PracticeService.startRandomPractice`'s own doc comment (kaizen-miniapp),
+those are built entirely client-side from the bundled practice-pool asset
+and never touch the backend at all.
+
+### `GET /practice/sessions/{sessionId}`
+
+A specific session by id — `404` if `sessionId` doesn't belong to the
+requesting chat (same IDOR-by-ownership pattern as
+`DELETE /history/{id}`/the result route below). Backs opening one entry
+from `GET /practice/sessions`' list.
 
 ### `POST /practice/today/exercises/{exerciseId}/result`
 
@@ -209,13 +238,14 @@ Response: `204 No Content`.
 
 `last7Days` is oldest-first, 7 entries, the last one being today. No
 dedicated table needed — both are derivable from `daily_session_db` rows
-alone: a day "counts" when that chat's session for that calendar date
-exists, has at least one exercise, and is `completed`; a day with no
-exercises available neither counts nor breaks the streak; a day with no
+alone, filtered to `kind: "daily"` only (never `"generated"`): a day
+"counts" when that chat's `"daily"` session for that calendar date exists,
+has at least one exercise, and is `completed`; a day with no exercises
+available neither counts nor breaks the streak; a day with no `"daily"`
 session row at all (chat never opened Daily Practice Home) stops the
-backward walk, same as an unfinished day. This reads the one `daily_session_db`
-row `POST /today/new-round` above must never overwrite, precisely so an extra
-round never un-earns a day already counted here.
+backward walk, same as an unfinished day. Filtering out `"generated"` rows
+is precisely why a `POST /today/new-round` extra round can never un-earn a
+day already counted here.
 
 ## 1.5. KataGo must always analyse at maximum resolution — preferences are a pure display-time slice
 

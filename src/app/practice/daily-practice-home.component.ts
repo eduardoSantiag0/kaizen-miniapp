@@ -1,4 +1,4 @@
-import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, computed, inject, signal, viewChild } from '@angular/core';
 import { Router } from '@angular/router';
 import { PracticeService } from '../data/practice.service';
 import { DEFAULT_PRACTICE_PREFERENCES, type DailyPracticeSession, type PracticeExerciseRef, type PracticePreferences } from '../data/practice.model';
@@ -7,6 +7,7 @@ import { PaperBackgroundComponent } from '../shared/paper-background/paper-backg
 import { SeigaihaFillComponent } from '../shared/seigaiha-fill/seigaiha-fill.component';
 import { SessionTrackComponent } from '../shared/session-track/session-track.component';
 import { StreakBadgeComponent } from '../shared/streak-badge/streak-badge.component';
+import { RandomPracticeDialogComponent } from './components/random-practice-dialog/random-practice-dialog.component';
 
 type Screen = 'loading' | 'ready' | 'error';
 export type ExerciseRowStatus = 'solved' | 'next' | 'ahead';
@@ -14,14 +15,16 @@ export type ExerciseRowStatus = 'solved' | 'next' | 'ahead';
 /**
  * Daily Practice Home (handoff v4-kaizen-daily-practice section 4) — the
  * session's entry screen: today's exercise list, a Start/Continue practice
- * button, and the Practice settings row. One component covers every listed
- * artboard (DailyHome/DailyContinue/DailyDone/DailyLoading/DailyEmpty/
- * DailyError) as states of the same screen, the same pattern GamesPage uses
- * for its own loading/error/ready/empty states.
+ * button, the Practice settings row, and any other sessions the chat has
+ * generated ("Random practice"), each opening its own set of exercises
+ * (never the daily one's) and never affecting the streak. One component
+ * covers every listed artboard (DailyHome/DailyContinue/DailyDone/
+ * DailyLoading/DailyEmpty/DailyError) as states of the same screen, the
+ * same pattern GamesPage uses for its own loading/error/ready/empty states.
  */
 @Component({
   selector: 'kz-daily-practice-home',
-  imports: [PaperBackgroundComponent, SeigaihaFillComponent, SessionTrackComponent, StreakBadgeComponent],
+  imports: [PaperBackgroundComponent, SeigaihaFillComponent, SessionTrackComponent, StreakBadgeComponent, RandomPracticeDialogComponent],
   templateUrl: './daily-practice-home.component.html',
   styleUrl: './daily-practice-home.component.scss',
 })
@@ -31,16 +34,23 @@ export class DailyPracticeHomeComponent {
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
 
+  private readonly randomPracticeDialog = viewChild.required(RandomPracticeDialogComponent);
+
   readonly screen = signal<Screen>('loading');
-  private readonly session = signal<DailyPracticeSession | null>(null);
+  private readonly sessions = signal<DailyPracticeSession[]>([]);
   readonly preferences = signal<PracticePreferences>({ ...DEFAULT_PRACTICE_PREFERENCES });
   /** Hidden at 0 and while loading (handoff section 4) — 0 is the signal's own default until the real count arrives. */
   readonly currentStreak = signal(0);
 
-  readonly exercises = computed(() => this.session()?.exercises ?? []);
+  /** The one always-present auto-generated session for today — null only while still loading. */
+  readonly dailySession = computed(() => this.sessions().find((s) => s.kind === 'daily') ?? null);
+  /** Any "Random practice" rounds the chat has generated — any number of them, listed separately from the daily session, never affecting the streak. */
+  readonly generatedSessions = computed(() => this.sessions().filter((s) => s.kind === 'generated'));
+
+  readonly exercises = computed(() => this.dailySession()?.exercises ?? []);
   readonly totalCount = computed(() => this.exercises().length);
   readonly completedCount = computed(() => this.exercises().filter((e) => e.completed).length);
-  readonly isComplete = computed(() => this.session()?.completed === true);
+  readonly isComplete = computed(() => this.dailySession()?.completed === true);
   readonly hasStarted = computed(() => this.completedCount() > 0);
   readonly isEmpty = computed(() => this.totalCount() === 0);
 
@@ -96,27 +106,44 @@ export class DailyPracticeHomeComponent {
     return `${toPlay} to play · ${exercise.boardSize}×${exercise.boardSize} · move ${exercise.moveNumber}`;
   }
 
+  /** How many of a generated session's own exercises are done, for its row in the "Other sessions" list. */
+  sessionProgressLabel(session: DailyPracticeSession): string {
+    if (session.completed) return 'Done';
+    const done = session.exercises.filter((e) => e.completed).length;
+    return `${done} of ${session.exercises.length} done`;
+  }
+
   startOrContinue(): void {
-    this.router.navigate(['/practice/session']);
+    const session = this.dailySession();
+    if (session) this.router.navigate(['/practice/session', session.id]);
   }
 
   reviewExercises(): void {
-    this.router.navigate(['/practice/session'], { queryParams: { review: '1' } });
+    const session = this.dailySession();
+    if (session) this.router.navigate(['/practice/session', session.id], { queryParams: { review: '1' } });
   }
 
-  /** "Continue practicing" (shown once today's original session is complete): generates another set of problems and jumps straight into solving them, rather than just refreshing this screen's own list. */
+  openSession(sessionId: string): void {
+    this.router.navigate(['/practice/session', sessionId]);
+  }
+
+  /** "Continue practicing" (shown once today's original session is complete): generates another set of problems and jumps straight into solving them, replacing the daily session in place — never adding a second one. */
   continuePracticing(): void {
     this.practice.startNewRound().subscribe((session) => {
-      this.session.set(session);
-      this.router.navigate(['/practice/session']);
+      this.refreshSessions();
+      this.router.navigate(['/practice/session', session.id]);
     });
   }
 
-  /** "Random practice" (below Start/Continue practice): a session built entirely from the bundled practice-pool, for testing — see PracticeService.startRandomPractice's own doc comment. */
-  startRandomPractice(): void {
-    this.practice.startRandomPractice().subscribe((session) => {
-      this.session.set(session);
-      this.router.navigate(['/practice/session']);
+  /** "Random practice" (below Start/Continue practice): opens the exercise-count dialog first — see PracticeService.startRandomPractice's own doc comment. */
+  openRandomPracticeDialog(): void {
+    this.randomPracticeDialog().show();
+  }
+
+  onRandomPracticeConfirmed(count: number): void {
+    this.practice.startRandomPractice(count).subscribe((session) => {
+      this.refreshSessions();
+      this.router.navigate(['/practice/session', session.id]);
     });
   }
 
@@ -128,14 +155,18 @@ export class DailyPracticeHomeComponent {
     this.screen.set('loading');
 
     this.practice.startTodaySession().subscribe({
-      next: (session) => {
-        this.session.set(session);
+      next: () => {
+        this.refreshSessions();
         this.screen.set('ready');
         this.practice.getPreferences().subscribe((prefs) => this.preferences.set(prefs));
         this.practice.getStreak().subscribe((streak) => this.currentStreak.set(streak.currentStreak));
       },
       error: () => this.screen.set('error'),
     });
+  }
+
+  private refreshSessions(): void {
+    this.practice.listSessions().subscribe((sessions) => this.sessions.set(sessions));
   }
 
   readonly backToGames = (): void => {

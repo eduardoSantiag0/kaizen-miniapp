@@ -1,6 +1,6 @@
 ﻿import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
-import { of } from 'rxjs';
+import { map, of } from 'rxjs';
 import { PracticeSettingsComponent } from './practice-settings.component';
 import { PracticeService } from '../data/practice.service';
 import { DEFAULT_PRACTICE_PREFERENCES, type PracticePreferences } from '../data/practice.model';
@@ -14,7 +14,7 @@ class StubPracticeService extends PracticeService {
   }
 
   override startTodaySession() {
-    return of({ date: '2026-01-01', exercises: [], completed: false });
+    return of({ id: 's1', kind: 'daily' as const, date: '2026-01-01', exercises: [], completed: false });
   }
 
   override startNewRound() {
@@ -22,6 +22,14 @@ class StubPracticeService extends PracticeService {
   }
 
   override startRandomPractice() {
+    return this.startTodaySession();
+  }
+
+  override listSessions() {
+    return this.startTodaySession().pipe(map((session) => [session]));
+  }
+
+  override getSession() {
     return this.startTodaySession();
   }
 

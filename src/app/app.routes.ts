@@ -16,6 +16,7 @@ export const routes: Routes = [
   // screen reached from Finish practice — Done there returns to Games.
   { path: 'practice', component: DailyPracticeHomeComponent },
   { path: 'practice/settings', component: PracticeSettingsComponent },
-  { path: 'practice/session', component: PracticeSessionComponent },
+  // :id binds straight to PracticeSessionComponent's `id` input (withComponentInputBinding) — which session to open, the daily one or one of the chat's generated ("Random practice") rounds.
+  { path: 'practice/session/:id', component: PracticeSessionComponent },
   { path: 'practice/complete', component: PracticeCompleteComponent },
 ];

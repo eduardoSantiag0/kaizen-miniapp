@@ -80,8 +80,6 @@
         @if (!isComplete()) {
           <button type="button" class="kz-home-primary" (click)="startOrContinue()">{{ primaryLabel() }}</button>
           <p class="kz-home-primary-note">{{ primaryNote() }}</p>
-          <button type="button" class="kz-home-random" (click)="startRandomPractice()">Random practice</button>
-          <p class="kz-home-primary-note">For testing — a session from the bundled practice pool, not your own games.</p>
         } @else {
           <div class="kz-home-complete">
             <p class="kz-home-complete-title">Practice complete</p>
@@ -92,9 +90,25 @@
             <button type="button" class="kz-home-review" (click)="reviewExercises()">Review exercises</button>
           </div>
         }
+
+        <button type="button" class="kz-home-random" (click)="openRandomPracticeDialog()">Random practice</button>
+        <p class="kz-home-primary-note">For testing — a separate session from the bundled practice pool, not your own games.</p>
+
+        @if (generatedSessions().length > 0) {
+          <div class="kz-home-other-sessions">
+            <p class="kz-home-other-sessions-title">Other sessions</p>
+            @for (other of generatedSessions(); track other.id) {
+              <button type="button" class="kz-home-other-session-row" (click)="openSession(other.id)">
+                <span>{{ other.exercises.length }} exercises</span>
+                <span class="kz-home-other-session-progress">{{ sessionProgressLabel(other) }}</span>
+              </button>
+            }
+          </div>
+        }
       }
     }
   }
 
+  <kz-random-practice-dialog (confirmed)="onRandomPracticeConfirmed($event)" />
   <kz-seigaiha-fill />
 </div>

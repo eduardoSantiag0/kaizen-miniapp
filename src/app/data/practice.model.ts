@@ -39,7 +39,17 @@ export interface StreakInfo {
   last7Days: boolean[];
 }
 
+/**
+ * 'daily': the one auto-generated session for a calendar day — at most one
+ * per date, drives the streak. 'generated': an ad-hoc extra round ("Random
+ * practice"/future "generate more"), any number of them, never replacing
+ * the daily one and never affecting the streak.
+ */
+export type PracticeSessionKind = 'daily' | 'generated';
+
 export interface DailyPracticeSession {
+  id: string;
+  kind: PracticeSessionKind;
   /** ISO date (YYYY-MM-DD) this session belongs to. */
   date: string;
   exercises: PracticeExerciseRef[];

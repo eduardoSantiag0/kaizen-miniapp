@@ -6,7 +6,7 @@ import { PracticeService } from '../../../data/practice.service';
 import type { DailyPracticeSession } from '../../../data/practice.model';
 
 class StubPracticeService extends PracticeService {
-  session: DailyPracticeSession = { date: '2026-01-01', exercises: [], completed: false };
+  session: DailyPracticeSession = { id: 's1', kind: 'daily', date: '2026-01-01', exercises: [], completed: false };
 
   override getTodaySession() {
     return of(this.session);
@@ -21,6 +21,14 @@ class StubPracticeService extends PracticeService {
   }
 
   override startRandomPractice() {
+    return of(this.session);
+  }
+
+  override listSessions() {
+    return of([this.session]);
+  }
+
+  override getSession() {
     return of(this.session);
   }
 
@@ -67,6 +75,8 @@ describe('DailyPracticeCardComponent', () => {
   it('shows Start Practice with the available count when nothing has been attempted yet', () => {
     stub = new StubPracticeService();
     stub.session = {
+      id: 's1',
+      kind: 'daily',
       date: '2026-01-01',
       completed: false,
       exercises: [
@@ -84,6 +94,8 @@ describe('DailyPracticeCardComponent', () => {
   it('shows Continue Practice with progress once at least one exercise is done', () => {
     stub = new StubPracticeService();
     stub.session = {
+      id: 's1',
+      kind: 'daily',
       date: '2026-01-01',
       completed: false,
       exercises: [
@@ -101,6 +113,8 @@ describe('DailyPracticeCardComponent', () => {
   it('shows Practice Complete with no action once every exercise is done', () => {
     stub = new StubPracticeService();
     stub.session = {
+      id: 's1',
+      kind: 'daily',
       date: '2026-01-01',
       completed: true,
       exercises: [{ id: 'e1', gameId: 'g1', phase: 'opening', completed: true, opponentName: '', opponentRank: '', boardSize: 19, userSign: 1, moveNumber: 1, topVariants: 3, currentDepth: 4, selectedVariant: null, step: 1 }],

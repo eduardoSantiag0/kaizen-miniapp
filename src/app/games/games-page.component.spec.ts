@@ -14,7 +14,7 @@ class StubPracticeService extends PracticeService {
   }
 
   override startTodaySession() {
-    return of({ date: '2026-01-01', exercises: [], completed: false });
+    return of({ id: 's1', kind: 'daily' as const, date: '2026-01-01', exercises: [], completed: false });
   }
 
   override startNewRound() {
@@ -23,6 +23,14 @@ class StubPracticeService extends PracticeService {
 
   override startRandomPractice() {
     return this.startTodaySession();
+  }
+
+  override listSessions() {
+    return of([]);
+  }
+
+  override getSession() {
+    return of(null);
   }
 
   override recordResult() {
