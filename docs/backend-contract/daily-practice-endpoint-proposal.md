@@ -241,11 +241,20 @@ dedicated table needed — both are derivable from `daily_session_db` rows
 alone, filtered to `kind: "daily"` only (never `"generated"`): a day
 "counts" when that chat's `"daily"` session for that calendar date exists,
 has at least one exercise, and is `completed`; a day with no exercises
-available neither counts nor breaks the streak; a day with no `"daily"`
-session row at all (chat never opened Daily Practice Home) stops the
-backward walk, same as an unfinished day. Filtering out `"generated"` rows
-is precisely why a `POST /today/new-round` extra round can never un-earn a
-day already counted here.
+available neither counts nor breaks the streak. Filtering out `"generated"`
+rows is precisely why a `POST /today/new-round` extra round can never
+un-earn a day already counted here.
+
+**`currentStreak` counts through yesterday until today is finished**
+(handoff v5-1-kaizen-daily-practice sections 3/8 — this is what backs the
+streak chip beside the Games title and its `PracticeComplete`/`DailyStreak`
+state): the backward walk starts at today only if today's own `"daily"`
+session already exists, has exercises, and is completed; otherwise it
+starts at yesterday instead. Today being unfinished — or not started at
+all — must only skip today, never break the walk and zero out days already
+earned before it. (An earlier version of this backend had exactly that
+bug: starting the walk at today and breaking on an unfinished/missing day
+zeroed the whole streak while today was still in progress.)
 
 ## 1.5. KataGo must always analyse at maximum resolution — preferences are a pure display-time slice
 

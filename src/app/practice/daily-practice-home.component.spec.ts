@@ -254,6 +254,25 @@ describe('DailyPracticeHomeComponent', () => {
     expect(router.navigate).toHaveBeenCalledWith(['/practice/session', 'daily-1']);
   });
 
+  it('tapping an exercise row opens that specific exercise directly, not just the first unsolved one', () => {
+    create({
+      session: {
+        id: 'daily-1',
+        kind: 'daily',
+        date: '2026-01-01',
+        completed: false,
+        exercises: [exerciseRef({ id: 'e1' }), exerciseRef({ id: 'e2' }), exerciseRef({ id: 'e3' })],
+      },
+    });
+    fixture.detectChanges();
+
+    const router = TestBed.inject(Router);
+    spyOn(router, 'navigate');
+    const rows = fixture.nativeElement.querySelectorAll('.kz-home-row') as NodeListOf<HTMLButtonElement>;
+    rows[2].click();
+    expect(router.navigate).toHaveBeenCalledWith(['/practice/session', 'daily-1'], { queryParams: { exerciseId: 'e3' } });
+  });
+
   it('"Random practice" sits below Start/Continue practice, opens the count dialog, and starting it from there jumps straight into the new session', () => {
     create({ session: { id: 'daily-1', kind: 'daily', date: '2026-01-01', completed: false, exercises: [exerciseRef({ id: 'e1' })] } });
     fixture.detectChanges();

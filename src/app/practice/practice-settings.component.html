@@ -56,8 +56,22 @@
     </div>
 
     <div class="kz-candidate-example" aria-hidden="true">
+      @for (stone of contextStones; track $index) {
+        <span
+          class="kz-candidate-stone"
+          [class.kz-candidate-stone--white]="stone.sign === -1"
+          [style.--kz-col]="stone.col"
+          [style.--kz-row]="stone.row"
+        ></span>
+      }
       @for (letter of candidateLetters; let i = $index; track letter) {
-        <span class="kz-candidate-point" [class.kz-candidate-point--accepted]="candidateAccepted()[i]">{{ letter }}</span>
+        <span
+          class="kz-candidate-point"
+          [class.kz-candidate-point--accepted]="candidateAccepted()[i]"
+          [style.--kz-col]="candidatePositions[i].col"
+          [style.--kz-row]="candidatePositions[i].row"
+          >{{ letter }}</span
+        >
       }
     </div>
     <p class="kz-setting-caption">{{ topVariantsCaption() }}</p>

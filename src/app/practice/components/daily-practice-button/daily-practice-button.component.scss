@@ -4,16 +4,7 @@
   margin-bottom: 16px;
 }
 
-/* Streak badge sits beside the box rather than inside it — it's about the
-   player's overall practice habit, not this particular box's own state. */
-.kz-daily-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
 .kz-daily-btn {
-  flex: 1 1 auto;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -23,13 +14,6 @@
   border-radius: 3px;
   box-shadow: inset 0 0 0 1px var(--kz-bar-edge);
   background: var(--kz-bar-bg);
-  color: inherit;
-  text-decoration: none;
-}
-
-.kz-daily-streak {
-  flex: 0 0 auto;
-  white-space: nowrap;
   color: inherit;
   text-decoration: none;
 }

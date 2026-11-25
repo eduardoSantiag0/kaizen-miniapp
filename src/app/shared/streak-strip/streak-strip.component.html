@@ -8,6 +8,8 @@
               <span class="kz-streak-strip-dot"></span>
             }
           </span>
+        } @else if (day.isToday) {
+          <span class="kz-streak-strip-today-pending" aria-hidden="true"></span>
         }
       </div>
     }

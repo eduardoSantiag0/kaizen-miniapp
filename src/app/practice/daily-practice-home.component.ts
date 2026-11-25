@@ -139,6 +139,12 @@ export class DailyPracticeHomeComponent {
     this.router.navigate(['/practice/session', sessionId]);
   }
 
+  /** Tapping an exercise row opens that one directly — no need to go through Start/Continue practice's "first unsolved" default. */
+  openExercise(exercise: PracticeExerciseRef): void {
+    const session = this.dailySession();
+    if (session) this.router.navigate(['/practice/session', session.id], { queryParams: { exerciseId: exercise.id } });
+  }
+
   /** "Continue practicing" (shown once today's original session is complete): generates another set of problems and jumps straight into solving them, replacing the daily session in place — never adding a second one. */
   continuePracticing(): void {
     this.practice.startNewRound().subscribe((session) => {

@@ -17,11 +17,16 @@
   justify-items: center;
   height: 96px;
   background-color: #dcae5e;
+  /* "Three lines run across, and seven run down" (handoff section 8) — the
+     board grid itself, same repeating-line pattern as the Accepted-first-
+     moves example (practice-settings.component.scss's .kz-candidate-example),
+     not just the day-stones' own column spacing. */
   background-image:
     url('/assets/board-grain.jpg'),
-    repeating-linear-gradient(to right, rgba(28, 22, 12, 0.5) 0 1px, transparent 1px calc(100% / 7));
-  background-size: cover, 100% 100%;
-  background-blend-mode: multiply, normal;
+    repeating-linear-gradient(to right, rgba(28, 22, 12, 0.5) 0 1px, transparent 1px calc(100% / 7)),
+    repeating-linear-gradient(to bottom, rgba(28, 22, 12, 0.5) 0 1px, transparent 1px calc(100% / 3));
+  background-size: cover, 100% 100%, 100% 100%;
+  background-blend-mode: multiply, normal, normal;
   border-radius: 3px;
   position: relative;
 }
@@ -34,15 +39,27 @@
   height: 100%;
 }
 
-/* Fixed near-black, not var(--kz-ink) — that token goes cream/gold in dark
-   theme, which read as near-invisible against the Kaya gold board above. */
+/* Same radial-gradient stone used everywhere else a Go stone renders
+   (shared/stone-dot) — a flat fill here read as a plain black disc, not a
+   stone, next to every other board in the app. Fixed near-black, not
+   var(--kz-ink) — that token goes cream/gold in dark theme, which would be
+   near-invisible against the Kaya gold board above. */
 .kz-streak-strip-stone {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: #1e1d1f;
+  background: radial-gradient(circle at 32% 28%, #4a4a4e 0%, #1e1d1f 32%, #121113 100%);
   box-shadow: 0 1.5px 0 rgba(0, 0, 0, 0.35);
   position: relative;
+}
+
+/* Today, not finished yet (handoff v5-1 section 8, DailyStreak) — a dashed
+   circle nudge, distinct from a plain missed-day gap (no mark at all). */
+.kz-streak-strip-today-pending {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1.5px dashed rgba(28, 22, 12, 0.6);
 }
 
 .kz-streak-strip-dot {

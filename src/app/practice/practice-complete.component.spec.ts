@@ -150,4 +150,59 @@ describe('PracticeCompleteComponent', () => {
 
     expect(router.navigate).toHaveBeenCalledWith(['/']);
   });
+
+  // DailyStreak (handoff v5-1 section 8) — reached from the Games streak chip before today's practice is finished.
+  it('DailyStreak: never says "starts today", counts through yesterday, and never shows "Done"', () => {
+    create(
+      { id: 's1', kind: 'daily', date: '2026-01-01', completed: false, exercises: [exerciseRef({ id: 'e1', completed: false })] },
+      { currentStreak: 1, last7Days: [false, false, false, false, false, false, false] },
+    ).detectChanges();
+
+    expect(fixture.nativeElement.textContent).not.toContain('Your streak starts today');
+    expect(fixture.nativeElement.textContent).toContain('1');
+    expect(fixture.nativeElement.textContent).toContain('day in a row');
+    expect(fixture.nativeElement.querySelector('.kz-complete-done')?.textContent?.trim()).not.toBe('Done');
+  });
+
+  it('DailyStreak: feedback and next-step lines differ from DailyComplete', () => {
+    create(
+      { id: 's1', kind: 'daily', date: '2026-01-01', completed: false, exercises: [exerciseRef({ id: 'e1', completed: false })] },
+      { currentStreak: 4, last7Days: [false, false, false, true, true, true, false] },
+    ).detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain("Today's practice isn't finished yet.");
+    expect(fixture.nativeElement.textContent).toContain("Finish today's practice to make it");
+    expect(fixture.componentInstance.nextStreakNumber()).toBe(5);
+  });
+
+  it('DailyStreak: Start practice (nothing solved yet) opens today\'s session', () => {
+    create(
+      { id: 's1', kind: 'daily', date: '2026-01-01', completed: false, exercises: [exerciseRef({ id: 'e1', completed: false })] },
+      { currentStreak: 0, last7Days: [false, false, false, false, false, false, false] },
+    ).detectChanges();
+    const router = TestBed.inject(Router);
+    spyOn(router, 'navigate');
+
+    const button = fixture.nativeElement.querySelector('.kz-complete-done') as HTMLButtonElement;
+    expect(button.textContent?.trim()).toBe('Start practice');
+    button.click();
+
+    expect(router.navigate).toHaveBeenCalledWith(['/practice/session', 's1']);
+  });
+
+  it('DailyStreak: Continue practice once at least one exercise is already solved', () => {
+    create(
+      {
+        id: 's1',
+        kind: 'daily',
+        date: '2026-01-01',
+        completed: false,
+        exercises: [exerciseRef({ id: 'e1', completed: true }), exerciseRef({ id: 'e2', completed: false })],
+      },
+      { currentStreak: 2, last7Days: [false, false, false, false, false, true, false] },
+    ).detectChanges();
+
+    const button = fixture.nativeElement.querySelector('.kz-complete-done') as HTMLButtonElement;
+    expect(button.textContent?.trim()).toBe('Continue practice');
+  });
 });

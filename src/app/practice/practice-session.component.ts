@@ -39,6 +39,8 @@ export class PracticeSessionComponent {
   private readonly currentExerciseId = signal<string | null>(null);
   /** "Review exercises" (handoff section 8): starts at exercise 1 regardless of completion, and never re-records a result — see onExerciseSolved. */
   private readonly reviewMode = signal(false);
+  /** Set when Daily Practice Home's exercise list was tapped directly (not Start/Continue practice) — opens that one exercise instead of the first unsolved one. */
+  private readonly requestedExerciseId = signal<string | null>(null);
 
   /** A generated ("Random practice") session has no Daily Practice Home streak screen to land on and, outside the real Telegram app, no native BackButton either — so it gets its own on-screen back control (the daily session still relies solely on Telegram's native one, by design — see ExercisePageComponent's showContextBack). */
   readonly isGeneratedSession = computed(() => this.session()?.kind === 'generated');
@@ -74,6 +76,7 @@ export class PracticeSessionComponent {
 
   constructor() {
     this.reviewMode.set(this.route.snapshot.queryParamMap.get('review') === '1');
+    this.requestedExerciseId.set(this.route.snapshot.queryParamMap.get('exerciseId'));
     // `id` (required input) has no value yet during construction — same reason
     // ExercisePageComponent loads via effect() on its own gameId input rather
     // than reading it directly in the constructor body.
@@ -149,7 +152,11 @@ export class PracticeSessionComponent {
         }
 
         this.session.set(session);
-        const start = this.reviewMode() ? session.exercises[0] : session.exercises.find((e) => !e.completed) ?? session.exercises[0];
+        const requested = this.requestedExerciseId();
+        const requestedExercise = requested ? session.exercises.find((e) => e.id === requested) : undefined;
+        const start =
+          requestedExercise ??
+          (this.reviewMode() ? session.exercises[0] : session.exercises.find((e) => !e.completed) ?? session.exercises[0]);
         this.currentExerciseId.set(start.id);
         this.screen.set('ready');
       },

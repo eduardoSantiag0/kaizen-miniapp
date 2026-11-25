@@ -34,6 +34,16 @@
   gap: 2px;
 }
 
+/* Title and the streak chip, vertically centred, on one row — the chip's
+   own 44 px tap area overflows via negative margin without growing this
+   row past the title's own 32 px line height (handoff v5-1 section 3). */
+.kz-games-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .kz-games-title {
   margin: 0;
   font: 600 26px/32px 'IBM Plex Sans', sans-serif;

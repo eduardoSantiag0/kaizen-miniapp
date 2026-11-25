@@ -3,20 +3,21 @@ import { RouterLink } from '@angular/router';
 import { PracticeService } from '../../../data/practice.service';
 import type { DailyPracticeSession } from '../../../data/practice.model';
 import { SessionTrackComponent } from '../../../shared/session-track/session-track.component';
-import { StreakBadgeComponent } from '../../../shared/streak-badge/streak-badge.component';
 
 type Screen = 'loading' | 'ready' | 'error';
 
 /**
- * Games' "Daily practice" row (handoff v4-kaizen-daily-practice section 3):
+ * Games' "Daily practice" row (handoff v5-1-kaizen-daily-practice section 3):
  * sits between the description and the server filters, reads as an action
  * rather than another game row. Starts today's session eagerly so it always
  * has a real exercise count to show — PracticeService.startTodaySession()
- * is idempotent, so this is a no-op if GamesPage already triggered it.
+ * is idempotent, so this is a no-op if GamesPage already triggered it. The
+ * streak itself moved to StreakChipComponent, beside the Games title — v5-1's
+ * own layout for this row no longer has a streak element of its own.
  */
 @Component({
   selector: 'kz-daily-practice-button',
-  imports: [RouterLink, SessionTrackComponent, StreakBadgeComponent],
+  imports: [RouterLink, SessionTrackComponent],
   templateUrl: './daily-practice-button.component.html',
   styleUrl: './daily-practice-button.component.scss',
 })
@@ -26,8 +27,6 @@ export class DailyPracticeButtonComponent {
 
   readonly screen = signal<Screen>('loading');
   private readonly session = signal<DailyPracticeSession | null>(null);
-  /** Hidden at 0 and while loading, same convention as Daily Practice Home's own streak badge. */
-  readonly currentStreak = signal(0);
 
   readonly totalCount = computed(() => this.session()?.exercises.length ?? 0);
   readonly completedCount = computed(() => this.session()?.exercises.filter((e) => e.completed).length ?? 0);
@@ -76,6 +75,5 @@ export class DailyPracticeButtonComponent {
       },
       error: () => this.screen.set('error'),
     });
-    this.practice.getStreak().subscribe((streak) => this.currentStreak.set(streak.currentStreak));
   }
 }

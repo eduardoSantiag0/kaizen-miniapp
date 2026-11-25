@@ -56,23 +56,31 @@
 
         <ul class="kz-home-list">
           @for (exercise of exercises(); track exercise.id) {
-            <li class="kz-home-row" [class.kz-home-row--solved]="rowStatus(exercise) === 'solved'">
-              <div class="kz-home-row-thumb" [style.--kz-thumb-board-size]="exercise.boardSize" aria-hidden="true">
-                <span class="kz-home-row-stone" [class.kz-home-row-stone--white]="exercise.userSign === -1"></span>
-              </div>
-              <div class="kz-home-row-text">
-                <p class="kz-home-row-name-line">
-                  vs <strong>{{ exercise.opponentName }}</strong> {{ exercise.opponentRank }}
-                </p>
-                <p class="kz-home-row-meta">{{ rowMetaText(exercise) }}</p>
-              </div>
-              <div class="kz-home-row-status">
-                @if (rowStatus(exercise) === 'solved') {
-                  <span class="kz-home-row-solved">✓ Solved</span>
-                } @else if (rowStatus(exercise) === 'next') {
-                  <span class="kz-home-row-next">Up next</span>
-                }
-              </div>
+            <li>
+              <button
+                type="button"
+                class="kz-home-row"
+                [class.kz-home-row--solved]="rowStatus(exercise) === 'solved'"
+                [attr.aria-label]="'Open exercise vs ' + exercise.opponentName"
+                (click)="openExercise(exercise)"
+              >
+                <div class="kz-home-row-thumb" [style.--kz-thumb-board-size]="exercise.boardSize" aria-hidden="true">
+                  <span class="kz-home-row-stone" [class.kz-home-row-stone--white]="exercise.userSign === -1"></span>
+                </div>
+                <div class="kz-home-row-text">
+                  <p class="kz-home-row-name-line">
+                    vs <strong>{{ exercise.opponentName }}</strong> {{ exercise.opponentRank }}
+                  </p>
+                  <p class="kz-home-row-meta">{{ rowMetaText(exercise) }}</p>
+                </div>
+                <div class="kz-home-row-status">
+                  @if (rowStatus(exercise) === 'solved') {
+                    <span class="kz-home-row-solved">✓ Solved</span>
+                  } @else if (rowStatus(exercise) === 'next') {
+                    <span class="kz-home-row-next">Up next</span>
+                  }
+                </div>
+              </button>
             </li>
           }
         </ul>

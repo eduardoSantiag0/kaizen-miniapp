@@ -10,10 +10,14 @@ import { StreakStripComponent } from '../shared/streak-strip/streak-strip.compon
 const EMPTY_STREAK: StreakInfo = { currentStreak: 0, last7Days: [false, false, false, false, false, false, false] };
 
 /**
- * The completion screen (handoff v4-3-kaizen-daily-practice section 8) —
- * shown once, right after Finish practice. No stats, points or ranks: the
- * last-7-days strip and the plain streak count are the only feedback. Done
- * and the BackButton both return to Games.
+ * The completion/streak screen (handoff v5-1-kaizen-daily-practice section
+ * 8) — two states sharing one screen rather than two components (section
+ * 11: "PracticeComplete takes today: 'done' | 'open'"), decided here from
+ * the fetched session itself rather than a route/query input, since it's
+ * reached two ways: right after Finish practice (today is always done by
+ * then) and from the Games streak chip (today may not be finished yet).
+ * No stats, points or ranks: the last-7-days strip and the plain streak
+ * count are the only feedback. The BackButton always returns to Games.
  */
 @Component({
   selector: 'kz-practice-complete',
@@ -33,25 +37,50 @@ export class PracticeCompleteComponent {
   readonly totalCount = computed(() => this.session()?.exercises.length ?? 0);
   readonly currentStreak = computed(() => this.streak().currentStreak);
   readonly last7Days = computed(() => this.streak().last7Days);
-  readonly isFirstDay = computed(() => this.currentStreak() <= 1);
+
+  /** Today's own daily session, not yet finished — the DailyStreak state (handoff section 8), reached from the Games streak chip before Finish practice. */
+  readonly todayDone = computed(() => this.session()?.completed === true);
+  /** Only ever true in the 'done' state — DailyStreak never uses "Your streak starts today" (section 8's table), even at a streak of 1. */
+  readonly isFirstDay = computed(() => this.todayDone() && this.currentStreak() <= 1);
 
   /** Null on the first day — the headline is then plain text with no number to pick out in Mono. */
   readonly headlineNumber = computed<number | null>(() => (this.isFirstDay() ? null : this.currentStreak()));
   readonly headlineSuffix = computed(() => (this.isFirstDay() ? 'Your streak starts today' : `day${this.currentStreak() === 1 ? '' : 's'} in a row`));
+
   readonly feedbackLine = computed(() => {
+    if (!this.todayDone()) return "Today's practice isn't finished yet.";
     const total = this.totalCount();
     return `Practice complete — all ${total} exercise${total === 1 ? '' : 's'} done. One step better than yesterday.`;
   });
+
   readonly nextStreakNumber = computed(() => this.currentStreak() + 1);
+  readonly nextStepPrefix = computed(() => (this.todayDone() ? 'Come back tomorrow to make it' : "Finish today's practice to make it"));
+
+  /** Whether any exercise in today's own session is already solved — same test Daily Practice Home's own primary button uses to pick Start vs Continue. */
+  private readonly hasStarted = computed(() => (this.session()?.exercises ?? []).some((e) => e.completed));
+  readonly primaryLabel = computed(() => (this.hasStarted() ? 'Continue practice' : 'Start practice'));
 
   constructor() {
-    this.telegram.showBackButton(this.done);
-    this.destroyRef.onDestroy(() => this.telegram.hideBackButton(this.done));
-    this.practice.getTodaySession().subscribe((session) => this.session.set(session));
+    this.telegram.showBackButton(this.backToGames);
+    this.destroyRef.onDestroy(() => this.telegram.hideBackButton(this.backToGames));
+    // startTodaySession (idempotent) rather than getTodaySession — reached from the
+    // streak chip, the chat may not have opened Daily Practice at all today yet.
+    this.practice.startTodaySession().subscribe((session) => this.session.set(session));
     this.practice.getStreak().subscribe((streak) => this.streak.set(streak));
   }
 
+  /** DailyComplete's Done — today is already finished, nothing left to do here but leave. */
   readonly done = (): void => {
+    this.backToGames();
+  };
+
+  /** DailyStreak's Start/Continue practice — opens today's own session, same destination as Daily Practice Home's primary button. */
+  startOrContinuePractice(): void {
+    const session = this.session();
+    if (session) this.router.navigate(['/practice/session', session.id]);
+  }
+
+  private readonly backToGames = (): void => {
     this.router.navigate(['/']);
   };
 }

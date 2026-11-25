@@ -168,39 +168,4 @@ describe('DailyPracticeButtonComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('1 exercise today');
   });
 
-  it('shows the streak badge beside the box when there is a current streak, hidden at 0', () => {
-    stub = new StubPracticeService();
-    stub.session = {
-      id: 's1',
-      kind: 'daily',
-      date: '2026-01-01',
-      completed: false,
-      exercises: [exerciseRef({ id: 'e1', gameId: 'g1', phase: 'opening' })],
-    };
-    TestBed.overrideProvider(PracticeService, { useValue: stub });
-    create().detectChanges();
-    expect(fixture.nativeElement.querySelector('.kz-daily-streak')).toBeNull();
-
-    stub = new StubPracticeService();
-    stub.session = {
-      id: 's1',
-      kind: 'daily',
-      date: '2026-01-01',
-      completed: false,
-      exercises: [exerciseRef({ id: 'e1', gameId: 'g1', phase: 'opening' })],
-    };
-    spyOn(stub, 'getStreak').and.returnValue(of({ currentStreak: 5, last7Days: [true, true, true, true, true, true, true] }));
-    TestBed.resetTestingModule();
-    TestBed.configureTestingModule({
-      imports: [DailyPracticeButtonComponent],
-      providers: [provideRouter([]), { provide: PracticeService, useValue: stub }],
-    });
-    fixture = TestBed.createComponent(DailyPracticeButtonComponent);
-    fixture.detectChanges();
-
-    expect(fixture.nativeElement.textContent).toContain('5 days in a row');
-
-    const link = fixture.nativeElement.querySelector('.kz-daily-streak') as HTMLAnchorElement;
-    expect(link.getAttribute('ng-reflect-router-link') ?? link.getAttribute('href')).toContain('/practice/complete');
-  });
 });

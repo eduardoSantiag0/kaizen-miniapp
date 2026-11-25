@@ -138,7 +138,11 @@ describe('PracticeSessionComponent', () => {
     delete window.Telegram;
   });
 
-  function create(session: DailyPracticeSession, review = false): ComponentFixture<PracticeSessionComponent> {
+  function create(session: DailyPracticeSession, review = false, exerciseId?: string): ComponentFixture<PracticeSessionComponent> {
+    const queryParams: Record<string, string> = {};
+    if (review) queryParams['review'] = '1';
+    if (exerciseId) queryParams['exerciseId'] = exerciseId;
+
     TestBed.configureTestingModule({
       imports: [PracticeSessionComponent],
       providers: [
@@ -147,7 +151,7 @@ describe('PracticeSessionComponent', () => {
         { provide: GameHistoryService, useClass: StubGameHistoryService },
         {
           provide: ActivatedRoute,
-          useValue: { snapshot: { queryParamMap: convertToParamMap(review ? { review: '1' } : {}) } },
+          useValue: { snapshot: { queryParamMap: convertToParamMap(queryParams) } },
         },
       ],
     });
@@ -157,6 +161,25 @@ describe('PracticeSessionComponent', () => {
     fixture.componentRef.setInput('id', session.id);
     return fixture;
   }
+
+  it('opens the exercise named by the exerciseId query param, overriding "first unsolved" — Daily Practice Home\'s click-a-row path', fakeAsync(() => {
+    create(
+      {
+        id: 's1',
+        kind: 'daily',
+        date: '2026-01-01',
+        completed: false,
+        exercises: [exerciseRef({ id: 'e1', gameId: 'g1' }), exerciseRef({ id: 'e2', gameId: 'g2' })],
+      },
+      false,
+      'e2',
+    );
+    fixture.detectChanges();
+    tick();
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.currentExercise()?.id).toBe('e2');
+  }));
 
   it('opens the first unsolved exercise, not the first in session order', fakeAsync(() => {
     create({

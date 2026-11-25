@@ -1,0 +1,52 @@
+:host {
+  display: inline-flex;
+}
+
+/* 44 px tap area around a 32 px visual chip (handoff section 3), so the
+   title row itself stays 32 px tall — padding grows the hit target without
+   growing the row's own layout height. */
+.kz-streak-chip-tap {
+  display: inline-flex;
+  padding: 6px 0;
+  margin: -6px 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+.kz-streak-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 6px 0 10px;
+  border-radius: 3px;
+  background: var(--kz-bar-bg);
+  box-shadow: inset 0 0 0 1px var(--kz-bar-edge);
+}
+
+.kz-streak-chip-stone {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--kz-ink);
+  flex: none;
+
+  /* "On night it gets a 1.5 px ring so it reads on indigo" (section 3). */
+  :host-context([data-theme='dark']) & {
+    box-shadow: 0 0 0 1.5px rgba(241, 230, 204, 0.45);
+  }
+}
+
+.kz-streak-chip-number {
+  font: 500 15px/20px 'IBM Plex Mono', monospace;
+  color: var(--kz-ink);
+}
+
+.kz-streak-chip-label {
+  font: 400 13px/18px 'IBM Plex Sans', sans-serif;
+  color: var(--kz-hint);
+}
+
+.kz-streak-chip-chevron {
+  color: var(--kz-hint);
+}

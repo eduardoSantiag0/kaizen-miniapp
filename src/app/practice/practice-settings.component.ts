@@ -9,6 +9,23 @@ import { SeigaihaFillComponent } from '../shared/seigaiha-fill/seigaiha-fill.com
 /** The example strip's 5 candidate points (handoff v4-kaizen-daily-practice section 5) — lettered the way game records mark alternatives, not tied to any real position. */
 const CANDIDATE_LETTERS = ['A', 'B', 'C', 'D', 'E'] as const;
 
+/** Grid coordinates (0-indexed, 10 cols × 3 rows) for each lettered point — clustered near one spot, the way a game record marks alternatives branching from a single move, not spread evenly across the whole strip. */
+const CANDIDATE_POSITIONS: readonly { col: number; row: number }[] = [
+  { col: 4, row: 0 },
+  { col: 5, row: 1 },
+  { col: 4, row: 2 },
+  { col: 6, row: 0 },
+  { col: 6, row: 2 },
+];
+
+/** A few context stones (handoff section 5: "a few stones") so the strip reads as a real board position, not just floating letters. */
+const CONTEXT_STONES: readonly { col: number; row: number; sign: 1 | -1 }[] = [
+  { col: 1, row: 1, sign: 1 },
+  { col: 2, row: 0, sign: -1 },
+  { col: 8, row: 2, sign: 1 },
+  { col: 9, row: 0, sign: -1 },
+];
+
 /**
  * Daily Practice's settings screen (handoff v4-kaizen-daily-practice section
  * 5). No Save button: each change is pushed to PracticeService immediately
@@ -31,6 +48,8 @@ export class PracticeSettingsComponent {
   readonly loaded = signal(false);
 
   readonly candidateLetters = CANDIDATE_LETTERS;
+  readonly candidatePositions = CANDIDATE_POSITIONS;
+  readonly contextStones = CONTEXT_STONES;
 
   readonly topVariants = computed(() => this.preferences().topVariants);
   readonly continuationDepth = computed(() => this.preferences().continuationDepth);

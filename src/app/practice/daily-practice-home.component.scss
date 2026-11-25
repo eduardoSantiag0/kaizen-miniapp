@@ -56,11 +56,17 @@
   display: flex;
   align-items: center;
   gap: 12px;
+  width: 100%;
   min-height: 56px;
   padding: 12px 0;
+  border: none;
   border-top: 1px solid var(--kz-rule-list);
+  background: none;
+  color: inherit;
+  text-align: left;
+  font: inherit;
 
-  &:first-child {
+  .kz-home-list li:first-child & {
     border-top: none;
   }
 

@@ -14,10 +14,14 @@
 
   <p class="kz-complete-next">
     <span class="kz-complete-next-dot" aria-hidden="true"></span>
-    Come back tomorrow to make it <span class="kz-complete-next-number">{{ nextStreakNumber() }}</span>.
+    {{ nextStepPrefix() }} <span class="kz-complete-next-number">{{ nextStreakNumber() }}</span>.
   </p>
 
-  <button type="button" class="kz-complete-done" (click)="done()">Done</button>
+  @if (todayDone()) {
+    <button type="button" class="kz-complete-done" (click)="done()">Done</button>
+  } @else {
+    <button type="button" class="kz-complete-done" (click)="startOrContinuePractice()">{{ primaryLabel() }}</button>
+  }
 
   <kz-seigaiha-fill />
 </div>

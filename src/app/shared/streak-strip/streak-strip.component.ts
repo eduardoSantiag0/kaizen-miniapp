@@ -11,11 +11,12 @@ interface StrippedDay {
 }
 
 /**
- * The last 7 days as stones on a Kaya strip (handoff v4-3-kaizen-daily-practice
+ * The last 7 days as stones on a Kaya strip (handoff v5-1-kaizen-daily-practice
  * section 8) — oldest on the left, today on the right with the vermilion
- * last-move dot. A day not practiced is an empty intersection (open question
- * 3: a "no exercises that day" mark is left unresolved, rendered the same
- * way for now).
+ * last-move dot. A past day not practiced is a plain empty intersection
+ * (open question 3: a "no exercises that day" mark is left unresolved,
+ * rendered the same way for now); today specifically, when not yet
+ * practiced, gets its own dashed-circle nudge instead (DailyStreak state).
  */
 @Component({
   selector: 'kz-streak-strip',
@@ -44,7 +45,10 @@ export class StreakStripComponent {
   readonly ariaLabel = computed(() => {
     const parts = this.strippedDays().map((day) => {
       const label = day.isToday ? 'today' : day.weekdayName;
-      return `${label} ${day.practiced ? 'practised' : 'missed'}`;
+      // Today, not yet practiced, reads as "not finished yet" (handoff v5-1
+      // section 8) — a plain "missed" would wrongly suggest the day is over.
+      const status = day.practiced ? 'practised' : day.isToday ? 'not finished yet' : 'missed';
+      return `${label} ${status}`;
     });
     return `Last 7 days: ${parts.join(', ')}.`;
   });
