@@ -127,10 +127,29 @@
   margin-top: 14px;
   border-radius: 3px;
   background-color: #dcae5e;
+  /* Lines centred within each period, not at its start edge — the stones/points
+     below sit at the centre of their column (var(--kz-col) + 0.5), so an edge-drawn
+     line missed every one of them by half a column. See streak-strip.component.scss. */
   background-image:
     url('/assets/board-grain.jpg'),
-    repeating-linear-gradient(to right, rgba(28, 22, 12, 0.5) 0 1px, transparent 1px calc(100% / 10)),
-    repeating-linear-gradient(to bottom, rgba(28, 22, 12, 0.5) 0 1px, transparent 1px calc(100% / 3));
+    repeating-linear-gradient(
+      to right,
+      transparent 0,
+      transparent calc(50% / 10 - 0.5px),
+      rgba(28, 22, 12, 0.5) calc(50% / 10 - 0.5px),
+      rgba(28, 22, 12, 0.5) calc(50% / 10 + 0.5px),
+      transparent calc(50% / 10 + 0.5px),
+      transparent calc(100% / 10)
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent calc(50% / 3 - 0.5px),
+      rgba(28, 22, 12, 0.5) calc(50% / 3 - 0.5px),
+      rgba(28, 22, 12, 0.5) calc(50% / 3 + 0.5px),
+      transparent calc(50% / 3 + 0.5px),
+      transparent calc(100% / 3)
+    );
   background-size: cover, 100% 100%, 100% 100%;
   background-blend-mode: multiply, normal, normal;
 }
@@ -169,13 +188,19 @@
   background: transparent;
   border: 1px dashed rgba(28, 22, 12, 0.55);
 
-  /* Accepted reads as a real stone on the strip — solid paper-tinted fill and
-     ink letter/ring — not just a thicker border on the same faint fill. */
+  /* Accepted reads as a real stone on the strip — solid fill and ring, not
+     just a thicker border on the same faint fill — alternating black/white
+     same as the context stones above, not a single uniform colour. */
   &--accepted {
-    color: #1c1a17;
-    background: #f1e6cc;
+    color: #f1e6cc;
+    background: radial-gradient(circle at 32% 28%, #4a4a4e 0%, #1e1d1f 32%, #121113 100%);
     border: 2px solid #1c1a17;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+    box-shadow: 0 1.5px 0 rgba(0, 0, 0, 0.35);
+
+    &.kz-candidate-point--white {
+      color: #1c1a17;
+      background: radial-gradient(circle at 32% 28%, #ffffff, #d8d0bf 75%);
+    }
   }
 }
 

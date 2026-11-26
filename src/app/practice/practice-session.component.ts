@@ -1,5 +1,6 @@
 import { Component, DestroyRef, computed, effect, inject, input, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
+import { retry } from 'rxjs';
 import { PracticeService } from '../data/practice.service';
 import type { DailyPracticeSession, PracticeExerciseRef } from '../data/practice.model';
 import { ExercisePageComponent } from '../exercise/exercise-page.component';
@@ -108,18 +109,24 @@ export class PracticeSessionComponent {
     this.router.navigate(['/practice']);
   }
 
-  /** ExercisePageComponent's exerciseSolved (handoff section 6) — skipped once already recorded, so reviewing an already-solved exercise never changes the session result (handoff section 8). */
+  /** ExercisePageComponent's exerciseSolved (handoff section 6) — skipped once already recorded, so reviewing an already-solved exercise never changes the session result (handoff section 8). Retries a few times before giving up: this request failing silently (the previous behaviour — no error handler at all) is indistinguishable from the player's own completed count randomly falling short of what they actually played. */
   onExerciseSolved(): void {
     const exercise = this.currentExercise();
     if (!exercise || exercise.completed) return;
 
-    this.practice.recordResult(this.id(), exercise.id).subscribe(() => {
-      this.session.update((session) => {
-        if (!session) return session;
-        const exercises = session.exercises.map((e) => (e.id === exercise.id ? { ...e, completed: true } : e));
-        return { ...session, exercises, completed: exercises.every((e) => e.completed) };
+    this.practice
+      .recordResult(this.id(), exercise.id)
+      .pipe(retry({ count: 2, delay: 500 }))
+      .subscribe({
+        next: () => {
+          this.session.update((session) => {
+            if (!session) return session;
+            const exercises = session.exercises.map((e) => (e.id === exercise.id ? { ...e, completed: true } : e));
+            return { ...session, exercises, completed: exercises.every((e) => e.completed) };
+          });
+        },
+        error: (err) => console.error(`Failed to record exercise ${exercise.id} as completed`, err),
       });
-    });
   }
 
   /** ExercisePageComponent's progressChanged (handoff section 9) — fires after every confirmed move, Try another line and Go deeper. Skipped once already recorded, same as onExerciseSolved, so reviewing never rewrites a finished exercise's position. */
@@ -127,7 +134,10 @@ export class PracticeSessionComponent {
     const exercise = this.currentExercise();
     if (!exercise || exercise.completed) return;
 
-    this.practice.saveProgress(this.id(), exercise.id, progress).subscribe();
+    this.practice
+      .saveProgress(this.id(), exercise.id, progress)
+      .pipe(retry({ count: 2, delay: 500 }))
+      .subscribe({ error: (err) => console.error(`Failed to save progress for exercise ${exercise.id}`, err) });
     this.session.update((session) => {
       if (!session) return session;
       const exercises = session.exercises.map((e) => (e.id === exercise.id ? { ...e, ...progress } : e));

@@ -68,6 +68,7 @@
         <span
           class="kz-candidate-point"
           [class.kz-candidate-point--accepted]="candidateAccepted()[i]"
+          [class.kz-candidate-point--white]="i % 2 === 1"
           [style.--kz-col]="candidatePositions[i].col"
           [style.--kz-row]="candidatePositions[i].row"
           >{{ letter }}</span
