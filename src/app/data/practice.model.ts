@@ -64,11 +64,9 @@ export interface DailyPracticeSession {
  */
 /**
  * 'own' (default): only exercises built from the chat's own analyzed games.
- * 'mixed': pads a session with community-contributed exercises once the
- * chat's own games run out, instead of a shorter session — there's no real
- * community-content source wired up yet (MockPracticeService's own pool is
- * empty until one exists), so 'mixed' currently behaves like 'own' in
- * practice; the preference itself is real and saved either way.
+ * 'mixed': pads a session with the bundled practice-pool (public/practice-pool/
+ * practice-pool.json) once the chat's own games run out, instead of a
+ * shorter session — see PracticePoolService.
  */
 export type ExerciseSource = 'own' | 'mixed';
 

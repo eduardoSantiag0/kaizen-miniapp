@@ -25,9 +25,12 @@ export function newSessionId(): string {
   return crypto.randomUUID();
 }
 
-export function todayIso(): string {
-  const d = new Date();
+export function localIso(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+export function todayIso(): string {
+  return localIso(new Date());
 }
 
 /** Fisher-Yates, not a sort-by-random-key — doesn't mutate its argument. */
@@ -98,7 +101,10 @@ function displayInfo(root: SgfNode): Pick<PracticeExerciseRef, 'opponentName' | 
 
   return {
     userSign,
-    opponentName: userSign === BLACK ? whiteName : blackName,
+    // The bundled practice-pool's SGFs carry no PB/PW tags at all — without this
+    // fallback every pool-sourced row (Random practice, 'mixed' exerciseSource)
+    // would render as a bare "vs" with nothing after it.
+    opponentName: (userSign === BLACK ? whiteName : blackName) || 'Unknown opponent',
     opponentRank: userSign === BLACK ? whiteRank : blackRank,
     boardSize: Number(root.data['SZ']?.[0] ?? 19),
     moveNumber: branchPointDepth(root),

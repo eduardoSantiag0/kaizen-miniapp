@@ -5,10 +5,12 @@ import { PracticeService } from '../../data/practice.service';
 type Screen = 'loading' | 'ready' | 'error';
 
 /**
- * The streak chip beside the "Games" title (handoff v5-1-kaizen-daily-practice
- * section 3) — self-contained, same pattern as DailyPracticeButtonComponent:
- * fetches its own streak and hides itself at 0 / while loading or failed,
- * rather than GamesPageComponent threading PracticeService down to it.
+ * The streak chip beside the "Games" title — self-contained, same pattern as
+ * DailyPracticeButtonComponent: fetches its own streak rather than
+ * GamesPageComponent threading PracticeService down to it. Always visible
+ * once loaded (even at a streak of 0) so it stays a reachable entry point
+ * into PracticeComplete, not just a trophy that only shows up once there's
+ * already something to show off.
  *
  * Links to PracticeComplete regardless of whether today's practice is
  * finished — that screen itself decides between the DailyComplete and
@@ -28,8 +30,8 @@ export class StreakChipComponent {
   private readonly currentStreak = signal(0);
 
   readonly days = computed(() => this.currentStreak());
-  /** Hidden at 0, and while loading or failed (handoff section 3). */
-  readonly hidden = computed(() => this.screen() !== 'ready' || this.currentStreak() === 0);
+  /** Hidden only while loading or failed — a 0-day streak still shows, so the chip stays a working link into PracticeComplete. */
+  readonly hidden = computed(() => this.screen() !== 'ready');
 
   readonly ariaLabel = computed(() => `Streak: ${this.days()} day${this.days() === 1 ? '' : 's'} in a row`);
 

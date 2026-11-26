@@ -70,9 +70,13 @@ describe('StreakChipComponent', () => {
     return fixture;
   }
 
-  it('is hidden at 0', () => {
+  it('still shows and links to /practice/complete at 0 — it must stay a reachable entry point, not just a trophy', () => {
     create().detectChanges();
-    expect(fixture.nativeElement.querySelector('a')).toBeNull();
+
+    const link = fixture.nativeElement.querySelector('a') as HTMLAnchorElement;
+    expect(link).not.toBeNull();
+    expect(link.getAttribute('ng-reflect-router-link') ?? link.getAttribute('href')).toContain('/practice/complete');
+    expect(link.getAttribute('aria-label')).toBe('Streak: 0 days in a row');
   });
 
   it('is hidden on a load error, rather than showing a stale/wrong count', () => {

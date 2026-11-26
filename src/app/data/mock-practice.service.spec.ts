@@ -277,6 +277,107 @@ describe('MockPracticeService', () => {
     });
   });
 
+  function isoDaysAgo(days: number): string {
+    const d = new Date();
+    d.setDate(d.getDate() - days);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  function seedDailySession(daysAgo: number, completed: boolean): void {
+    const raw = localStorage.getItem('kz-practice-sessions');
+    const sessions = raw ? JSON.parse(raw) : [];
+    // A non-empty exercises array — an actually-practiced day, not the
+    // trivially-"completed" 0-exercise case getStreak must ignore.
+    sessions.push({ id: `seed-${daysAgo}`, kind: 'daily', date: isoDaysAgo(daysAgo), exercises: [{ id: 'e1', completed }], completed });
+    localStorage.setItem('kz-practice-sessions', JSON.stringify(sessions));
+  }
+
+  describe('getStreak', () => {
+    it('is 0/all-false with no history at all', (done) => {
+      service.getStreak().subscribe((streak) => {
+        expect(streak.currentStreak).toBe(0);
+        expect(streak.last7Days).toEqual([false, false, false, false, false, false, false]);
+        done();
+      });
+    });
+
+    it('counts consecutive completed days ending today', (done) => {
+      seedDailySession(2, true);
+      seedDailySession(1, true);
+      seedDailySession(0, true);
+      const reloaded = TestBed.runInInjectionContext(() => new MockPracticeService());
+
+      reloaded.getStreak().subscribe((streak) => {
+        expect(streak.currentStreak).toBe(3);
+        expect(streak.last7Days).toEqual([false, false, false, false, true, true, true]);
+        done();
+      });
+    });
+
+    it("does not reset while today just isn't finished yet — counts the run ending yesterday instead", (done) => {
+      seedDailySession(2, true);
+      seedDailySession(1, true);
+      // today: no daily session yet at all
+      const reloaded = TestBed.runInInjectionContext(() => new MockPracticeService());
+
+      reloaded.getStreak().subscribe((streak) => {
+        expect(streak.currentStreak).toBe(2);
+        done();
+      });
+    });
+
+    it('stops counting at the first gap, even if older days were completed', (done) => {
+      seedDailySession(3, true);
+      // daysAgo 2 missing — breaks the chain
+      seedDailySession(1, true);
+      seedDailySession(0, true);
+      const reloaded = TestBed.runInInjectionContext(() => new MockPracticeService());
+
+      reloaded.getStreak().subscribe((streak) => {
+        expect(streak.currentStreak).toBe(2); // just today + yesterday
+        done();
+      });
+    });
+
+    it('an unfinished daily session does not count as done, breaking the chain', (done) => {
+      seedDailySession(1, false);
+      seedDailySession(0, true);
+      const reloaded = TestBed.runInInjectionContext(() => new MockPracticeService());
+
+      reloaded.getStreak().subscribe((streak) => {
+        expect(streak.currentStreak).toBe(1); // yesterday wasn't actually finished
+        done();
+      });
+    });
+
+    it('a day with no analyzed games (0-exercise daily session, trivially "completed") does not count as practiced', (done) => {
+      service.startTodaySession().subscribe(() => {
+        // No games at all today — startTodaySession() still marks it completed (nothing to finish).
+        service.getStreak().subscribe((streak) => {
+          expect(streak.currentStreak).toBe(0);
+          expect(streak.last7Days[6]).toBe(false);
+          done();
+        });
+      });
+    });
+
+    it('a "generated" (Random practice) session on the same date never counts towards the streak', (done) => {
+      stubHistory.dtos = [dto({ id: 'g1', openingAnalysed: EXERCISE_SGF })];
+      const pool = [dto({ id: 'pool-1', openingAnalysed: EXERCISE_SGF })];
+
+      service.startRandomPractice(1).subscribe((round) => {
+        service.recordResult(round.id, round.exercises[0].id).subscribe(() => {
+          service.getStreak().subscribe((streak) => {
+            expect(streak.currentStreak).toBe(0); // only a 'daily' session should ever count
+            done();
+          });
+        });
+      });
+
+      httpMock.expectOne('practice-pool/practice-pool.json').flush(pool);
+    });
+  });
+
   it('sessions persist to localStorage, so a brand new service instance (simulating a reload) still finds them', (done) => {
     stubHistory.dtos = [dto({ id: 'g1', openingAnalysed: EXERCISE_SGF })];
 

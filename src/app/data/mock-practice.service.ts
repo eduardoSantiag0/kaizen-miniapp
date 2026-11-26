@@ -7,7 +7,9 @@ import { PracticeService } from './practice.service';
 import { DEFAULT_PRACTICE_PREFERENCES, type DailyPracticeSession, type PracticePreferences, type StreakInfo } from './practice.model';
 import type { ExerciseProgress } from '../exercise/exercise-state';
 import { SgfParserService } from '../sgf/sgf-parser.service';
-import { cloneSession, newSessionId, pickExercises, todayIso } from './practice-exercise-picker';
+import { cloneSession, localIso, newSessionId, pickExercises, todayIso } from './practice-exercise-picker';
+
+const STREAK_STRIP_DAYS = 7;
 
 const STORAGE_KEY = 'kz-practice-sessions';
 
@@ -162,10 +164,43 @@ export class MockPracticeService extends PracticeService {
     return of(undefined);
   }
 
-  /** Only the daily session's own completion history counts — generated ("Random practice") sessions never affect the streak. No real multi-day persistence in the mock either, just today's daily session. */
+  /**
+   * Only the daily session's own completion history counts — generated
+   * ("Random practice") sessions never affect the streak. Walks the actual
+   * persisted 'daily' sessions by date rather than just checking today's:
+   * currentStreak is the run of consecutive completed calendar days ending
+   * today (if today's already done) or ending yesterday (if today isn't
+   * finished yet — not practicing *yet* today doesn't reset a streak still
+   * in progress, same semantics PracticeCompleteComponent's copy assumes:
+   * "Finish today's practice to make it currentStreak + 1").
+   */
   getStreak(): Observable<StreakInfo> {
-    const doneToday = this.findDailySession(todayIso())?.completed ?? false;
-    return of({ currentStreak: doneToday ? 1 : 0, last7Days: [false, false, false, false, false, false, doneToday] });
+    // A session with zero exercises (no analyzed games that day) is marked
+    // `completed` trivially by startTodaySession (nothing to finish) — that
+    // must not count as a practiced day, or the streak would climb on its
+    // own for a chat that never actually practiced.
+    const isDoneOn = (date: Date) => {
+      const session = this.findDailySession(localIso(date));
+      return session?.completed === true && session.exercises.length > 0;
+    };
+
+    const today = new Date();
+
+    let cursor = today;
+    if (!isDoneOn(cursor)) cursor = addDays(cursor, -1);
+
+    let currentStreak = 0;
+    while (isDoneOn(cursor)) {
+      currentStreak++;
+      cursor = addDays(cursor, -1);
+    }
+
+    const last7Days: boolean[] = [];
+    for (let i = STREAK_STRIP_DAYS - 1; i >= 0; i--) {
+      last7Days.push(isDoneOn(addDays(today, -i)));
+    }
+
+    return of({ currentStreak, last7Days });
   }
 
   private findDailySession(date: string): DailyPracticeSession | undefined {
@@ -183,6 +218,12 @@ export class MockPracticeService extends PracticeService {
   private persist(): void {
     saveSessions(this.sessions);
   }
+}
+
+function addDays(date: Date, delta: number): Date {
+  const result = new Date(date);
+  result.setDate(result.getDate() + delta);
+  return result;
 }
 
 function loadSessions(): DailyPracticeSession[] {

@@ -69,7 +69,10 @@
                 </div>
                 <div class="kz-home-row-text">
                   <p class="kz-home-row-name-line">
-                    vs <strong>{{ exercise.opponentName }}</strong> {{ exercise.opponentRank }}
+                    vs <strong>{{ exercise.opponentName }}</strong>
+                    @if (exercise.opponentRank) {
+                      {{ exercise.opponentRank }}
+                    }
                   </p>
                   <p class="kz-home-row-meta">{{ rowMetaText(exercise) }}</p>
                 </div>
@@ -98,21 +101,21 @@
             <button type="button" class="kz-home-review" (click)="reviewExercises()">Review exercises</button>
           </div>
         }
+      }
 
-        <button type="button" class="kz-home-random" (click)="openRandomPracticeDialog()">Random practice</button>
-        <p class="kz-home-primary-note">For testing — a separate session from the bundled practice pool, not your own games.</p>
+      <button type="button" class="kz-home-random" (click)="openRandomPracticeDialog()">Random practice</button>
+      <p class="kz-home-primary-note">For testing — a separate session from the bundled practice pool, not your own games.</p>
 
-        @if (generatedSessions().length > 0) {
-          <div class="kz-home-other-sessions">
-            <p class="kz-home-other-sessions-title">Other sessions</p>
-            @for (other of generatedSessions(); track other.id) {
-              <button type="button" class="kz-home-other-session-row" (click)="openSession(other.id)">
-                <span>{{ other.exercises.length }} exercises</span>
-                <span class="kz-home-other-session-progress">{{ sessionProgressLabel(other) }}</span>
-              </button>
-            }
-          </div>
-        }
+      @if (generatedSessions().length > 0) {
+        <div class="kz-home-other-sessions">
+          <p class="kz-home-other-sessions-title">Other sessions</p>
+          @for (other of generatedSessions(); track other.id) {
+            <button type="button" class="kz-home-other-session-row" (click)="openSession(other.id)">
+              <span>{{ other.exercises.length }} exercises</span>
+              <span class="kz-home-other-session-progress">{{ sessionProgressLabel(other) }}</span>
+            </button>
+          }
+        </div>
       }
     }
   }
