@@ -83,6 +83,7 @@ export class GameRowComponent {
 
   readonly accessibleName = computed(() => {
     const e = this.entry();
-    return `${e.opponentName}, ${this.resultLabel().toLowerCase()} ${e.result}, ${e.boardSize} by ${e.boardSize}, ${this.statusLine()}`;
+    const matchup = `${e.blackName || 'Black'} vs ${e.whiteName || 'White'}`;
+    return `${matchup}, ${this.resultLabel().toLowerCase()} ${e.result}, ${e.boardSize} by ${e.boardSize}, ${this.statusLine()}`;
   });
 }

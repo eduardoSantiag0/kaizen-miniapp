@@ -1,5 +1,6 @@
 import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
+import { retry } from 'rxjs';
 import { PracticeService } from '../data/practice.service';
 import { DEFAULT_PRACTICE_PREFERENCES, type ExerciseSource, type PracticePreferences } from '../data/practice.model';
 import { TelegramService } from '../core/telegram.service';
@@ -115,7 +116,13 @@ export class PracticeSettingsComponent {
   private updatePreferences(patch: Partial<PracticePreferences>): void {
     const next = { ...this.preferences(), ...patch };
     this.preferences.set(next);
-    this.practice.setPreferences(next).subscribe();
+    // Retries before giving up — this failing silently (the previous behaviour) meant the
+    // screen kept showing the new value while the server, and the next generated exercise,
+    // silently kept the old one.
+    this.practice
+      .setPreferences(next)
+      .pipe(retry({ count: 2, delay: 500 }))
+      .subscribe({ error: (err) => console.error('Failed to save practice preferences', err) });
   }
 
   readonly backToHome = (): void => {

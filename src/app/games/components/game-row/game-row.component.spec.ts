@@ -44,6 +44,8 @@ describe('GameRowComponent', () => {
       id: 'game-1',
       opponentName: 'kitsune77',
       opponentRank: '4k',
+      blackName: 'the_user',
+      whiteName: 'kitsune77',
       boardSize: 19,
       server: 'OGS',
       moves: 91,
@@ -101,7 +103,8 @@ describe('GameRowComponent', () => {
     expect(row).toBeTruthy();
     const a = link();
     expect(a).toBeTruthy();
-    expect(a!.getAttribute('aria-label')).toBe('kitsune77, won B+R, 19 by 19, OGS · 19×19 · Nov 9');
+    expect(a!.getAttribute('aria-label')).toBe('the_user vs kitsune77, won B+R, 19 by 19, OGS · 19×19 · Nov 9');
+    // (black vs white, same order as the visible row — this fixture's user happens to be black)
     expect(a!.getAttribute('href')).toContain('/game/game-1');
   });
 

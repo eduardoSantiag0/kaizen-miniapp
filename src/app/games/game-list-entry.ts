@@ -20,6 +20,9 @@ export interface GameListEntry {
   opponentName: string;
   /** The opponent's own rank only (not the combined blackRank/whiteRank pair) — '' if unknown. */
   opponentRank: string;
+  /** PB/PW as recorded, regardless of which side is the user — '' if unknown. The row shows these by colour (Black vs White), not by "you vs opponent". */
+  blackName: string;
+  whiteName: string;
   boardSize: number;
   /** 'OGS' | 'DGS' | '' — from the SGF's PC[] tag, same convention as exercise-source.ts. */
   server: string;
@@ -150,6 +153,8 @@ export function deriveGameListEntry(dto: GameHistoryDto, sgfParser: SgfParserSer
     id: dto.id,
     opponentName,
     opponentRank,
+    blackName,
+    whiteName,
     boardSize: Number(root?.data['SZ']?.[0] ?? 19),
     server,
     moves: root ? countMoves(root) : 0,

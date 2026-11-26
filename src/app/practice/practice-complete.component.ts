@@ -1,5 +1,6 @@
 import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
+import { forkJoin } from 'rxjs';
 import { PracticeService } from '../data/practice.service';
 import type { DailyPracticeSession, StreakInfo } from '../data/practice.model';
 import { TelegramService } from '../core/telegram.service';
@@ -8,6 +9,8 @@ import { SeigaihaFillComponent } from '../shared/seigaiha-fill/seigaiha-fill.com
 import { StreakStripComponent } from '../shared/streak-strip/streak-strip.component';
 
 const EMPTY_STREAK: StreakInfo = { currentStreak: 0, last7Days: [false, false, false, false, false, false, false] };
+
+type Screen = 'loading' | 'ready' | 'error';
 
 /**
  * The completion/streak screen (handoff v5-1-kaizen-daily-practice section
@@ -60,13 +63,37 @@ export class PracticeCompleteComponent {
   private readonly hasStarted = computed(() => (this.session()?.exercises ?? []).some((e) => e.completed));
   readonly primaryLabel = computed(() => (this.hasStarted() ? 'Continue practice' : 'Start practice'));
 
+  readonly screen = signal<Screen>('loading');
+
   constructor() {
     this.telegram.showBackButton(this.backToGames);
     this.destroyRef.onDestroy(() => this.telegram.hideBackButton(this.backToGames));
+    this.load();
+  }
+
+  /** The 'error' state's own retry — this is the streak screen, the one place a silent
+   * failure would read as "your streak really is zero" instead of "the fetch failed". */
+  retry(): void {
+    this.load();
+  }
+
+  private load(): void {
+    this.screen.set('loading');
     // startTodaySession (idempotent) rather than getTodaySession — reached from the
     // streak chip, the chat may not have opened Daily Practice at all today yet.
-    this.practice.startTodaySession().subscribe((session) => this.session.set(session));
-    this.practice.getStreak().subscribe((streak) => this.streak.set(streak));
+    // forkJoin: only show real content once BOTH calls land — showing the real streak
+    // next to a still-empty session (or vice versa) would misrepresent today's state.
+    forkJoin({
+      session: this.practice.startTodaySession(),
+      streak: this.practice.getStreak(),
+    }).subscribe({
+      next: ({ session, streak }) => {
+        this.session.set(session);
+        this.streak.set(streak);
+        this.screen.set('ready');
+      },
+      error: () => this.screen.set('error'),
+    });
   }
 
   /** DailyComplete's Done — today is already finished, nothing left to do here but leave. */

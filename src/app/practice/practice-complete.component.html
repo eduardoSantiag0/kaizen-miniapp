@@ -1,26 +1,40 @@
 <kz-paper-background />
 
 <div class="kz-complete-page">
-  <kz-streak-strip class="kz-complete-strip" [days]="last7Days()" />
-
-  <h1 class="kz-complete-title">
-    @if (headlineNumber() !== null) {
-      <span class="kz-complete-title-number">{{ headlineNumber() }}</span>
+  @switch (screen()) {
+    @case ('loading') {
+      <div class="kz-complete-state" role="status" aria-label="Loading your streak">Loading…</div>
     }
-    {{ headlineSuffix() }}
-  </h1>
+    @case ('error') {
+      <div class="kz-complete-state">
+        <p class="kz-complete-state-title">Couldn't load your streak</p>
+        <p class="kz-complete-state-body">Check your connection and try again.</p>
+        <button type="button" class="kz-complete-retry" (click)="retry()">Try again</button>
+      </div>
+    }
+    @case ('ready') {
+      <kz-streak-strip class="kz-complete-strip" [days]="last7Days()" />
 
-  <p class="kz-complete-feedback">{{ feedbackLine() }}</p>
+      <h1 class="kz-complete-title">
+        @if (headlineNumber() !== null) {
+          <span class="kz-complete-title-number">{{ headlineNumber() }}</span>
+        }
+        {{ headlineSuffix() }}
+      </h1>
 
-  <p class="kz-complete-next">
-    <span class="kz-complete-next-dot" aria-hidden="true"></span>
-    {{ nextStepPrefix() }} <span class="kz-complete-next-number">{{ nextStreakNumber() }}</span>.
-  </p>
+      <p class="kz-complete-feedback">{{ feedbackLine() }}</p>
 
-  @if (todayDone()) {
-    <button type="button" class="kz-complete-done" (click)="done()">Done</button>
-  } @else {
-    <button type="button" class="kz-complete-done" (click)="startOrContinuePractice()">{{ primaryLabel() }}</button>
+      <p class="kz-complete-next">
+        <span class="kz-complete-next-dot" aria-hidden="true"></span>
+        {{ nextStepPrefix() }} <span class="kz-complete-next-number">{{ nextStreakNumber() }}</span>.
+      </p>
+
+      @if (todayDone()) {
+        <button type="button" class="kz-complete-done" (click)="done()">Done</button>
+      } @else {
+        <button type="button" class="kz-complete-done" (click)="startOrContinuePractice()">{{ primaryLabel() }}</button>
+      }
+    }
   }
 
   <kz-seigaiha-fill />

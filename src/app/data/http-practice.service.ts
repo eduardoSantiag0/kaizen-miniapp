@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { catchError, map, Observable, of, switchMap, throwError } from 'rxjs';
+import { catchError, finalize, map, Observable, of, shareReplay, switchMap, throwError } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { TelegramService } from '../core/telegram.service';
 import { PracticePoolService } from './practice-pool.service';
@@ -37,6 +37,16 @@ export class HttpPracticeService extends PracticeService {
    */
   private localPoolSessions: DailyPracticeSession[] = [];
 
+  /**
+   * At least 4 components call startTodaySession() independently on their own mount
+   * (the Games row, its card, Daily Practice Home, the completion screen) — without
+   * this, each one fires its own POST, wasting requests and, in a race, risking one of
+   * them hitting the backend's unique-session-per-day constraint on the same insert the
+   * other is mid-way through. Shared while in flight; cleared once it settles (success
+   * or error) so a later visit still gets a fresh request, not a stale cached session.
+   */
+  private startTodaySession$?: Observable<DailyPracticeSession>;
+
   private get authHeaders() {
     return { headers: { Authorization: `tma ${this.telegram.initData}` } };
   }
@@ -49,11 +59,15 @@ export class HttpPracticeService extends PracticeService {
   }
 
   startTodaySession(): Observable<DailyPracticeSession> {
-    return this.http.post<DailyPracticeSession>(
-      `${environment.apiBaseUrl}${HttpPracticeService.BASE}/today/start`,
-      null,
-      this.authHeaders,
-    );
+    if (!this.startTodaySession$) {
+      this.startTodaySession$ = this.http
+        .post<DailyPracticeSession>(`${environment.apiBaseUrl}${HttpPracticeService.BASE}/today/start`, null, this.authHeaders)
+        .pipe(
+          finalize(() => (this.startTodaySession$ = undefined)),
+          shareReplay({ bufferSize: 1, refCount: false }),
+        );
+    }
+    return this.startTodaySession$;
   }
 
   startNewRound(): Observable<DailyPracticeSession> {

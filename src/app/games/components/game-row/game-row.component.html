@@ -11,8 +11,9 @@
 
   <div class="kz-game-row-text">
     <div class="kz-game-row-name-line">
+      <span class="kz-game-row-name">{{ e.blackName || 'Black' }}</span>
       <span class="kz-game-row-vs">vs</span>
-      <span class="kz-game-row-name">{{ e.opponentName }}</span>
+      <span class="kz-game-row-name">{{ e.whiteName || 'White' }}</span>
       @if (e.opponentRank) {
         <span class="kz-game-row-rank">{{ e.opponentRank }}</span>
       }

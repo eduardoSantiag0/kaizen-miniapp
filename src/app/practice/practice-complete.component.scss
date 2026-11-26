@@ -69,3 +69,32 @@
   color: var(--kz-on-primary);
   font: 700 17px/1 'IBM Plex Sans', sans-serif;
 }
+
+.kz-complete-state {
+  padding: 48px 16px;
+  text-align: center;
+  font: 400 15px/21px 'IBM Plex Sans', sans-serif;
+  color: var(--kz-hint);
+}
+
+.kz-complete-state-title {
+  margin: 0;
+  font: 600 17px/22px 'IBM Plex Sans', sans-serif;
+  color: var(--kz-ink);
+}
+
+.kz-complete-state-body {
+  margin: 6px 0 0;
+}
+
+.kz-complete-retry {
+  display: inline-block;
+  margin-top: 16px;
+  height: 44px;
+  padding: 0 20px;
+  border: none;
+  border-radius: 3px;
+  background: var(--kz-primary);
+  color: var(--kz-on-primary);
+  font: 700 15px/1 'IBM Plex Sans', sans-serif;
+}

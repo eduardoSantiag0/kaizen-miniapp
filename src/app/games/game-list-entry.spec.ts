@@ -52,6 +52,8 @@ describe('deriveGameListEntry', () => {
     expect(entry.userSign).toBe(1); // PL[B]
     expect(entry.opponentName).toBe('kitsune77'); // PW — the non-user side
     expect(entry.opponentRank).toBe('3k'); // WR — the non-user side's rank
+    expect(entry.blackName).toBe('the_user'); // PB
+    expect(entry.whiteName).toBe('kitsune77'); // PW
     expect(entry.won).toBe(true); // RE[B+R], user is black
   });
 
@@ -76,6 +78,8 @@ describe('deriveGameListEntry', () => {
     expect(entry.moves).toBe(0);
     expect(entry.userSign).toBe(1); // no PL[] available — defaults to black
     expect(entry.opponentName).toBe('hoshi_no_go'); // userSign black -> opponent is white
+    expect(entry.blackName).toBe(''); // no blackPlayer in the DTO either — unknown, not a bug
+    expect(entry.whiteName).toBe('hoshi_no_go');
   });
 
   it('counts moves along the first-child chain, independent of the branch point', () => {

@@ -147,9 +147,15 @@ export class DailyPracticeHomeComponent {
 
   /** "Continue practicing" (shown once today's original session is complete): generates another set of problems and jumps straight into solving them, replacing the daily session in place — never adding a second one. */
   continuePracticing(): void {
-    this.practice.startNewRound().subscribe((session) => {
-      this.refreshSessions();
-      this.router.navigate(['/practice/session', session.id]);
+    // No retry here (unlike recordResult/setPreferences): this creates a new round
+    // server-side, so retrying a request that actually succeeded but lost its response
+    // would create a second one instead of just missing a write.
+    this.practice.startNewRound().subscribe({
+      next: (session) => {
+        this.refreshSessions();
+        this.router.navigate(['/practice/session', session.id]);
+      },
+      error: (err) => console.error('Failed to start a new practice round', err),
     });
   }
 
@@ -159,9 +165,12 @@ export class DailyPracticeHomeComponent {
   }
 
   onRandomPracticeConfirmed(count: number): void {
-    this.practice.startRandomPractice(count).subscribe((session) => {
-      this.refreshSessions();
-      this.router.navigate(['/practice/session', session.id]);
+    this.practice.startRandomPractice(count).subscribe({
+      next: (session) => {
+        this.refreshSessions();
+        this.router.navigate(['/practice/session', session.id]);
+      },
+      error: (err) => console.error('Failed to start random practice', err),
     });
   }
 
@@ -184,8 +193,14 @@ export class DailyPracticeHomeComponent {
       next: () => {
         this.refreshSessions();
         this.screen.set('ready');
-        this.practice.getPreferences().subscribe((prefs) => this.preferences.set(prefs));
-        this.practice.getStreak().subscribe((streak) => this.currentStreak.set(streak.currentStreak));
+        this.practice.getPreferences().subscribe({
+          next: (prefs) => this.preferences.set(prefs),
+          error: (err) => console.error('Failed to load practice preferences', err),
+        });
+        this.practice.getStreak().subscribe({
+          next: (streak) => this.currentStreak.set(streak.currentStreak),
+          error: (err) => console.error('Failed to load streak', err),
+        });
       },
       // A background refresh failing must not blank out data already on screen —
       // only show the error state if we had nothing to show in the first place.
