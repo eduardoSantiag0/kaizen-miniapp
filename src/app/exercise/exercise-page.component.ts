@@ -302,13 +302,20 @@ export class ExercisePageComponent {
           }
         } catch (error) {
           if (error instanceof UnreadableSgfError || error instanceof UnreadableExerciseError) {
+            // Deterministic, not transient — this exact gameId/phase will never parse, so
+            // "Try again" will fail identically every time. Logged so a stuck exercise is
+            // diagnosable instead of a silent dead end (handoff v5-1: the Daily Practice flow).
+            console.error(`Exercise unreadable for game ${gameId} (${phase ?? 'menu mode'}):`, error);
             this.state.update((s) => ({ ...s, screen: 'sgfError' }));
           } else {
             throw error;
           }
         }
       },
-      error: () => this.state.update((s) => ({ ...s, screen: 'error' })),
+      error: (err) => {
+        console.error(`Failed to load game ${gameId}`, err);
+        this.state.update((s) => ({ ...s, screen: 'error' }));
+      },
     });
   }
 

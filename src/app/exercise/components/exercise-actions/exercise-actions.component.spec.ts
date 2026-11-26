@@ -144,6 +144,17 @@ describe('ExerciseActionsComponent', () => {
     expect(fixture.componentInstance.events).toEqual(['retryLoad']);
   });
 
+  it('also offers Back to games for {kind: "retryLoad"} — a load failure isn\'t always transient, so Try again alone could strand the player', () => {
+    fixture.componentInstance.actions.set({ kind: 'retryLoad' });
+    fixture.detectChanges();
+
+    const rows = buttons();
+    expect(rows.length).toBe(2);
+    expect(rows[1].textContent?.trim()).toBe('Back to games');
+    rows[1].click();
+    expect(fixture.componentInstance.events).toEqual(['backToGames']);
+  });
+
   it('sits in normal flow, not pinned — reachable by scrolling, not sticky positioning', () => {
     fixture.detectChanges();
 

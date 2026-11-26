@@ -24,7 +24,10 @@
       <button type="button" class="kz-btn kz-btn--primary" (click)="backToGames.emit()">Back to games</button>
     }
     @case ('retryLoad') {
+      <!-- A load failure isn't always transient (e.g. a permanently missing game) — Try
+           again alone, with nothing else on screen, left a stuck session with no way out. -->
       <button type="button" class="kz-btn kz-btn--primary" (click)="retryLoad.emit()">Try again</button>
+      <button type="button" class="kz-btn kz-btn--outline" (click)="backToGames.emit()">Back to games</button>
     }
   }
 </div>

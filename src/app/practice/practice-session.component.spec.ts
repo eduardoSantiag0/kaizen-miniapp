@@ -1,6 +1,6 @@
 ﻿import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
-import { of } from 'rxjs';
+import { delay, of } from 'rxjs';
 import { PracticeSessionComponent } from './practice-session.component';
 import { PracticeService } from '../data/practice.service';
 import type { DailyPracticeSession, PracticeExerciseRef, PracticePreferences } from '../data/practice.model';
@@ -282,6 +282,33 @@ describe('PracticeSessionComponent', () => {
     fixture.componentInstance.onDailyNext();
     expect(router.navigate).not.toHaveBeenCalled();
     tick(450); // FINISH_PRACTICE_DELAY_MS — the finished board stays on screen a beat before navigating.
+    expect(router.navigate).toHaveBeenCalledWith(['/practice/complete']);
+  }));
+
+  it('onDailyNext waits past the visual delay for a slow recordResult, instead of racing /practice/complete against it', fakeAsync(() => {
+    create({
+      id: 's1',
+      kind: 'daily',
+      date: '2026-01-01',
+      completed: false,
+      exercises: [exerciseRef({ id: 'e1', gameId: 'g1' })],
+    });
+    fixture.detectChanges();
+    tick();
+    fixture.detectChanges();
+
+    // Slower than FINISH_PRACTICE_DELAY_MS — without waiting on it, Finish practice would
+    // navigate to /practice/complete before the backend had recorded this exercise as done.
+    spyOn(stub, 'recordResult').and.returnValue(of(undefined).pipe(delay(1000)));
+    fixture.componentInstance.onExerciseSolved();
+
+    const router = TestBed.inject(Router);
+    spyOn(router, 'navigate');
+    fixture.componentInstance.onDailyNext();
+
+    tick(450);
+    expect(router.navigate).not.toHaveBeenCalled();
+    tick(550); // now past the full 1000ms recordResult
     expect(router.navigate).toHaveBeenCalledWith(['/practice/complete']);
   }));
 

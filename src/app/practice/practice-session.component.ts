@@ -1,6 +1,6 @@
 import { Component, DestroyRef, computed, effect, inject, input, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { retry } from 'rxjs';
+import { Subscription, catchError, combineLatest, of, retry, shareReplay, timer } from 'rxjs';
 import { PracticeService } from '../data/practice.service';
 import type { DailyPracticeSession, PracticeExerciseRef } from '../data/practice.model';
 import { ExercisePageComponent } from '../exercise/exercise-page.component';
@@ -18,6 +18,11 @@ type Screen = 'loading' | 'ready' | 'error';
  * screen so abruptly that the player never perceives it having landed. This
  * delay (same idea as ExercisePageComponent's OPPONENT_REPLY_DELAY_MS) gives
  * the finished board a beat on screen before the completion screen replaces it.
+ * Also now waits on the last exercise's own recordResult (see lastRecordResult$)
+ * — without that, a slow/retrying request could still be in flight when
+ * /practice/complete re-fetches the session, which would then show the session
+ * as not-yet-done (wrong streak, "Continue practice" looping back into the
+ * exercise the player already solved).
  */
 const FINISH_PRACTICE_DELAY_MS = 450;
 
@@ -56,7 +61,11 @@ export class PracticeSessionComponent {
   private readonly requestedExerciseId = signal<string | null>(null);
 
   private readonly destroyRef = inject(DestroyRef);
-  private finishTimer?: ReturnType<typeof setTimeout>;
+  private finishSub?: Subscription;
+  /** The most recent exercise's recordResult, settled (success or swallowed error) — see
+   * onExerciseSolved/onDailyNext. Starts pre-resolved so a session with no completions
+   * yet (or review mode, which never calls recordResult) never blocks Finish practice. */
+  private lastRecordResult$ = of<void>(undefined);
 
   /** A generated ("Random practice") session has no Daily Practice Home streak screen to land on and, outside the real Telegram app, no native BackButton either — so it gets its own on-screen back control (the daily session still relies solely on Telegram's native one, by design — see ExercisePageComponent's showContextBack). */
   readonly isGeneratedSession = computed(() => this.session()?.kind === 'generated');
@@ -98,7 +107,7 @@ export class PracticeSessionComponent {
     // than reading it directly in the constructor body.
     effect(() => this.load(this.id()));
 
-    this.destroyRef.onDestroy(() => clearTimeout(this.finishTimer));
+    this.destroyRef.onDestroy(() => this.finishSub?.unsubscribe());
   }
 
   retry(): void {
@@ -114,19 +123,25 @@ export class PracticeSessionComponent {
     const exercise = this.currentExercise();
     if (!exercise || exercise.completed) return;
 
-    this.practice
-      .recordResult(this.id(), exercise.id)
-      .pipe(retry({ count: 2, delay: 500 }))
-      .subscribe({
-        next: () => {
-          this.session.update((session) => {
-            if (!session) return session;
-            const exercises = session.exercises.map((e) => (e.id === exercise.id ? { ...e, completed: true } : e));
-            return { ...session, exercises, completed: exercises.every((e) => e.completed) };
-          });
-        },
-        error: (err) => console.error(`Failed to record exercise ${exercise.id} as completed`, err),
-      });
+    const recordResult$ = this.practice.recordResult(this.id(), exercise.id).pipe(
+      retry({ count: 2, delay: 500 }),
+      shareReplay({ bufferSize: 1, refCount: false }),
+    );
+    // Finish practice (onDailyNext) waits on this before navigating to /practice/complete —
+    // catchError here (not on the subscribe below) so a wait never hangs on a failure, it
+    // just proceeds once this settles either way.
+    this.lastRecordResult$ = recordResult$.pipe(catchError(() => of(undefined)));
+
+    recordResult$.subscribe({
+      next: () => {
+        this.session.update((session) => {
+          if (!session) return session;
+          const exercises = session.exercises.map((e) => (e.id === exercise.id ? { ...e, completed: true } : e));
+          return { ...session, exercises, completed: exercises.every((e) => e.completed) };
+        });
+      },
+      error: (err) => console.error(`Failed to record exercise ${exercise.id} as completed`, err),
+    });
   }
 
   /** ExercisePageComponent's progressChanged (handoff section 9) — fires after every confirmed move, Try another line and Go deeper. Skipped once already recorded, same as onExerciseSolved, so reviewing never rewrites a finished exercise's position. */
@@ -160,10 +175,13 @@ export class PracticeSessionComponent {
     if (session.kind === 'daily') {
       // Finish practice (last exercise) saves the session and opens the completion
       // screen; Done there returns to Games (handoff v4-3-kaizen-daily-practice section 6/8).
-      // Delayed (FINISH_PRACTICE_DELAY_MS) so the just-played final stone has a beat
-      // on screen before the board is replaced by the completion screen.
-      clearTimeout(this.finishTimer);
-      this.finishTimer = setTimeout(() => this.router.navigate(['/practice/complete']), FINISH_PRACTICE_DELAY_MS);
+      // Waits on both the minimum visual delay AND the last exercise's recordResult —
+      // whichever takes longer — so /practice/complete never re-fetches the session before
+      // the backend has actually processed this exercise's completion (see lastRecordResult$).
+      this.finishSub?.unsubscribe();
+      this.finishSub = combineLatest([timer(FINISH_PRACTICE_DELAY_MS), this.lastRecordResult$]).subscribe(() =>
+        this.router.navigate(['/practice/complete']),
+      );
     } else {
       // A generated ("Random practice") session never affects the streak, so it gets
       // no completion screen — just back to the session list on Daily Practice Home.
