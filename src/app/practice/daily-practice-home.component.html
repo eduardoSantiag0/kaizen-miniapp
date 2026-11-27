@@ -104,7 +104,12 @@
             @if (deepeningExercise()) {
               <button type="button" class="kz-home-review" (click)="resumeDeepening()">Resume Go Deeper</button>
             }
-            <button type="button" class="kz-home-complete-continue" (click)="continuePracticing()">Continue practicing</button>
+            <button type="button" class="kz-home-complete-continue" [disabled]="startingRound()" (click)="startMoreExercises()">
+              {{ startingRound() ? 'Loading exercises?' : 'More exercises' }}
+            </button>
+            @if (roundError(); as error) {
+              <p class="kz-home-complete-body" role="alert">{{ error }}</p>
+            }
             <button type="button" class="kz-home-review" (click)="reviewExercises()">Review exercises</button>
           </div>
         }

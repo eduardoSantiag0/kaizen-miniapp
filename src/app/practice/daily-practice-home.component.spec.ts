@@ -1,4 +1,4 @@
-﻿import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { DailyPracticeHomeComponent } from './daily-practice-home.component';
@@ -224,7 +224,7 @@ describe('DailyPracticeHomeComponent', () => {
     expect(router.navigate).toHaveBeenCalledWith(['/practice/session', 'daily-1'], { queryParams: { review: '1' } });
   });
 
-  it('"Continue practicing" sits above "Review exercises", starts a fresh round, and jumps straight into it', () => {
+  it('"More exercises" sits above "Review exercises", starts a fresh round, and jumps straight into it', () => {
     create({
       session: {
         id: 'daily-1',
@@ -237,14 +237,40 @@ describe('DailyPracticeHomeComponent', () => {
     fixture.detectChanges();
 
     const buttons = Array.from(fixture.nativeElement.querySelectorAll('.kz-home-complete button')) as HTMLButtonElement[];
-    expect(buttons.map((b) => b.textContent?.trim())).toEqual(['Continue practicing', 'Review exercises']);
+    expect(buttons.map((b) => b.textContent?.trim())).toEqual(['More exercises', 'Review exercises']);
 
     const router = TestBed.inject(Router);
     spyOn(router, 'navigate');
     buttons[0].click();
 
     expect(stub.startNewRoundCalls).toBe(1);
-    expect(router.navigate).toHaveBeenCalledWith(['/practice/session', 'daily-1']);
+    expect(router.navigate).toHaveBeenCalledWith(['/practice/session', 'daily-1'], { info: { startedSession: stub.session } });
+  });
+
+  it('keeps More exercises available after a failed request', () => {
+    create({
+      session: {
+        id: 'daily-1', kind: 'daily', date: '2026-01-01', completed: true,
+        exercises: [exerciseRef({ id: 'e1', completed: true })],
+      },
+    });
+    fixture.detectChanges();
+    const router = TestBed.inject(Router);
+    spyOn(router, 'navigate');
+    spyOn(console, 'error');
+    const start = spyOn(stub, 'startNewRound').and.returnValue(throwError(() => new Error('network')));
+    const button: HTMLButtonElement = fixture.nativeElement.querySelector('.kz-home-complete-continue');
+    button.click();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('[role="alert"]').textContent).toContain('Try again');
+    expect(button.disabled).toBeFalse();
+    expect(router.navigate).not.toHaveBeenCalled();
+
+    const round: DailyPracticeSession = { ...stub.session, id: 'generated-1', kind: 'generated' };
+    start.and.returnValue(of(round));
+    button.click();
+    expect(router.navigate).toHaveBeenCalledWith(['/practice/session', 'generated-1'], { info: { startedSession: round } });
   });
 
   it('shows the current preference values on the settings row and navigates to /practice/settings', () => {

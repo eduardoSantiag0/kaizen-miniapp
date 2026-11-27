@@ -1,3 +1,5 @@
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { finalize } from 'rxjs';
 import { Component, DestroyRef, computed, inject, signal, viewChild } from '@angular/core';
 import { Router } from '@angular/router';
 import { PracticeService } from '../data/practice.service';
@@ -164,17 +166,28 @@ export class DailyPracticeHomeComponent {
     if (session) this.router.navigate(['/practice/session', session.id], { queryParams: { exerciseId: exercise.id } });
   }
 
-  /** "Continue practicing" (shown once today's original session is complete): generates another set of problems and jumps straight into solving them, replacing the daily session in place — never adding a second one. */
-  continuePracticing(): void {
-    // No retry here (unlike recordResult/setPreferences): this creates a new round
-    // server-side, so retrying a request that actually succeeded but lost its response
-    // would create a second one instead of just missing a write.
-    this.practice.startNewRound().subscribe({
+  readonly startingRound = signal(false);
+  readonly roundError = signal<string | null>(null);
+
+  startMoreExercises(): void {
+    if (this.startingRound()) return;
+    this.roundError.set(null);
+    this.startingRound.set(true);
+    this.practice.startNewRound().pipe(
+      takeUntilDestroyed(this.destroyRef),
+      finalize(() => this.startingRound.set(false)),
+    ).subscribe({
       next: (session) => {
-        this.refreshSessions();
-        this.router.navigate(['/practice/session', session.id]);
+        if (!session.exercises.length) {
+          this.roundError.set('No exercises available for another round.');
+          return;
+        }
+        this.router.navigate(['/practice/session', session.id], { info: { startedSession: session } });
       },
-      error: (err) => console.error('Failed to start a new practice round', err),
+      error: (error) => {
+        console.error('Failed to start a new practice round', error);
+        this.roundError.set("Couldn't start another round. Try again.");
+      },
     });
   }
 

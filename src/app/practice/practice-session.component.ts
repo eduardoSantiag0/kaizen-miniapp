@@ -2,7 +2,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, DestroyRef, computed, effect, inject, input, signal, untracked } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
-import { Subscription, finalize, retry, throwError, timeout, TimeoutError, timer } from 'rxjs';
+import { Subscription, finalize, of, retry, throwError, timeout, TimeoutError, timer } from 'rxjs';
 import { PracticeService } from '../data/practice.service';
 import { isDeepening, readPracticeLocal, readPracticePosition, writePracticeLocal } from '../data/practice-local';
 import type { DailyPracticeSession, PracticeExerciseRef } from '../data/practice.model';
@@ -38,6 +38,8 @@ export class PracticeSessionComponent {
   private readonly practice = inject(PracticeService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private startedSession = (this.router.currentNavigation()?.extras.info as
+    { startedSession?: DailyPracticeSession } | undefined)?.startedSession;
 
   readonly id = input.required<string>();
 
@@ -237,7 +239,10 @@ export class PracticeSessionComponent {
     const query = this.route.snapshot.queryParamMap;
     const requested = query.get('exerciseId');
     const review = query.get('review') === '1';
-    this.loadSub = this.practice.getSession(id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+    const initialSession = this.startedSession?.id === id ? this.startedSession : undefined;
+    this.startedSession = undefined;
+    const session$ = initialSession ? of(initialSession) : this.practice.getSession(id);
+    this.loadSub = session$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (session) => {
         if (!session || session.exercises.length === 0) {
           this.router.navigate(['/practice']);
