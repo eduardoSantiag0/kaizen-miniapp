@@ -1,10 +1,9 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { delay, map, Observable, of, switchMap } from 'rxjs';
+import { delay, map, Observable, of } from 'rxjs';
 import { forkJoin } from 'rxjs';
 import { GameHistoryService } from './game-history.service';
 import type { GameHistoryDto } from './game-history.model';
-import { PracticePoolService } from './practice-pool.service';
 import { SgfParserService } from '../sgf/sgf-parser.service';
 
 /**
@@ -17,7 +16,6 @@ import { SgfParserService } from '../sgf/sgf-parser.service';
 export class MockGameHistoryService extends GameHistoryService {
   private readonly http = inject(HttpClient);
   private readonly sgfParser = inject(SgfParserService);
-  private readonly practicePool = inject(PracticePoolService);
 
   /** Games "resigned" (cancelled/deleted) this session — filtered out of every subsequent list, so the mock behaves like a real resign endpoint across a refetch. */
   private readonly resignedIds = new Set<string>();
@@ -92,15 +90,12 @@ export class MockGameHistoryService extends GameHistoryService {
   }
 
   /**
-   * A 'mixed'/"Random practice" exercise's gameId may be one of the bundled
-   * practice-pool's own entries rather than one of the chat's real games —
-   * checked first, so opening it resolves that entry's own SGF instead of
-   * always falling through to the single real fixture triplet below.
+   * Menu mode only (ExercisePageComponent) — Daily Practice's own exercises
+   * (personal or dataset alike) carry their SGF directly on the exercise
+   * itself now (PracticeExerciseRef.sgf), never through a gameId lookup here.
    */
   getGameHistory(gameId: string): Observable<GameHistoryDto> {
-    return this.practicePool.findById(gameId).pipe(
-      switchMap((pooled) => (pooled ? of(pooled) : this.fetchRealGame(gameId))),
-    );
+    return this.fetchRealGame(gameId);
   }
 
   /**

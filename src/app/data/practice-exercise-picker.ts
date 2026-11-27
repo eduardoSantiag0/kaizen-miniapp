@@ -1,5 +1,5 @@
 import type { GameHistoryDto, GamePhase } from './game-history.model';
-import type { DailyPracticeSession, PracticeExerciseRef } from './practice.model';
+import type { DailyPracticeSession, ExerciseOrigin, PracticeExerciseRef } from './practice.model';
 import type { SgfParserService } from '../sgf/sgf-parser.service';
 import { buildExerciseTree } from '../exercise/exercise-tree';
 import type { SgfNode } from '../sgf/sgf-node';
@@ -43,27 +43,39 @@ export function shuffle<T>(items: T[]): T[] {
   return result;
 }
 
+/** One candidate game tagged with where it actually came from — see ExerciseOrigin's own doc comment (practice.model.ts). */
+export interface ExerciseCandidate {
+  dto: GameHistoryDto;
+  origin: ExerciseOrigin;
+}
+
+/** Tags a batch of DTOs with one shared origin — MockPracticeService/HttpPracticeService's own candidate lists are each entirely one origin or the other (own games vs. the practice-pool), never mixed within a single call. */
+export function asCandidates(dtos: GameHistoryDto[], origin: ExerciseOrigin): ExerciseCandidate[] {
+  return dtos.map((dto) => ({ dto, origin }));
+}
+
 /**
- * Shared by MockPracticeService (the chat's own games, optionally padded
- * with the practice-pool) and HttpPracticeService's startRandomPractice
- * (the practice-pool alone) — picks up to `count` exercise-able phases
- * across the given games, skipping any phase with no usable branch point.
- * `shuffled`: shuffles every (game, phase) candidate pair up front rather
- * than just the games list, since otherwise a single game's own phases would
- * always come out in the same opening/middlegame/endgame order regardless
- * of game order.
+ * MockPracticeService's own session builder (startTodaySession/startNewRound/
+ * startRandomPractice) — picks up to `count` exercise-able phases across the
+ * given games, skipping any phase with no usable branch point. The real
+ * HttpPracticeService no longer builds sessions client-side at all (every
+ * exercise, 'personal' or 'dataset', now comes fully formed from the
+ * backend — see ExerciseDto), so this is dev-only. `shuffled`: shuffles every
+ * (game, phase) candidate pair up front rather than just the games list,
+ * since otherwise a single game's own phases would always come out in the
+ * same opening/middlegame/endgame order regardless of game order.
  */
 export function pickExercises(
   sgfParser: SgfParserService,
-  dtos: GameHistoryDto[],
+  sources: ExerciseCandidate[],
   options: { count: number; shuffled?: boolean; topVariants?: number; continuationDepth?: number },
 ): PracticeExerciseRef[] {
-  let candidates = dtos.flatMap((dto) => PHASE_ORDER.map(({ phase, key }) => ({ dto, phase, key })));
+  let candidates = sources.flatMap(({ dto, origin }) => PHASE_ORDER.map(({ phase, key }) => ({ dto, phase, key, origin })));
   if (options.shuffled) candidates = shuffle(candidates);
 
   const refs: PracticeExerciseRef[] = [];
 
-  for (const { dto, phase, key } of candidates) {
+  for (const { dto, phase, key, origin } of candidates) {
     const sgf = dto[key];
     if (typeof sgf !== 'string') continue;
 
@@ -74,6 +86,8 @@ export function pickExercises(
         id: `${dto.id}-${phase}`,
         gameId: dto.id,
         phase,
+        origin,
+        sgf,
         completed: false,
         topVariants: options.topVariants ?? 3,
         currentDepth: options.continuationDepth ?? 4,
@@ -101,9 +115,10 @@ function displayInfo(root: SgfNode): Pick<PracticeExerciseRef, 'opponentName' | 
 
   return {
     userSign,
-    // The bundled practice-pool's SGFs carry no PB/PW tags at all — without this
-    // fallback every pool-sourced row (Random practice, 'mixed' exerciseSource)
-    // would render as a bare "vs" with nothing after it.
+    // Dataset-origin rows get their own "Community exercise" display instead of a
+    // name (daily-practice-home.component.html) — their SGFs carry no PB/PW tags at
+    // all. This fallback only guards a 'personal' exercise whose own SGF is somehow
+    // missing PB/PW too, so opponentName is never blank regardless of origin.
     opponentName: (userSign === BLACK ? whiteName : blackName) || 'Unknown opponent',
     opponentRank: userSign === BLACK ? whiteRank : blackRank,
     boardSize: Number(root.data['SZ']?.[0] ?? 19),

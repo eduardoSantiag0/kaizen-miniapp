@@ -1,5 +1,6 @@
 ﻿import { Component, DestroyRef, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
 import { Router } from '@angular/router';
+import { Observable, defer, map, of, throwError } from 'rxjs';
 import type { Vertex } from '@sabaki/shudan';
 import GoBoard from '@sabaki/go-board';
 import { GameHistoryService } from '../data/game-history.service';
@@ -16,7 +17,7 @@ import { SeigaihaFillComponent } from '../shared/seigaiha-fill/seigaiha-fill.com
 import { PaperBackgroundComponent } from '../shared/paper-background/paper-background.component';
 import { actionsFor, actionsForScreen, messageFor, messageForScreen, turnLineText } from './exercise-copy';
 import { UnreadableExerciseError, type ExerciseTree } from './exercise-tree';
-import { loadExerciseCollection, loadSingleExercise, type LoadedExercise } from './exercise-source';
+import { loadExerciseCollection, loadExerciseFromSgf, type LoadedExercise } from './exercise-source';
 import {
   canUndo,
   goDeeper,
@@ -99,6 +100,8 @@ export class ExercisePageComponent {
   private readonly modeOn = computed<ExercisePageMode>(() => this.mode() ?? 'menu');
   /** Daily mode only: which single phase to load — skips the menu-mode "try all 3 phases" heuristic entirely, since the session already knows. */
   readonly phase = input<GamePhase | null>(null);
+  /** Daily mode only: this exercise's own SGF, already resolved by the session wrapper (PracticeExerciseRef.sgf) — personal or dataset alike, same shape either way. Menu mode fetches its own SGF instead, via gameId/GameHistoryService. */
+  readonly sgf = input<string | null>(null);
   /** Daily mode only: Continuation Depth (M) preference, the starting point before any "Go deeper" taps — handoff section 5/7. Ignored in menu mode. */
   readonly depth = input(4);
   private readonly depthOn = computed(() => this.depth() ?? 4);
@@ -250,10 +253,10 @@ export class ExercisePageComponent {
       this.telegram.enableVerticalSwipes();
     });
 
-    // Reruns whenever gameId (or, in daily mode, phase) changes, so a
+    // Reruns whenever gameId (or, in daily mode, phase/sgf) changes, so a
     // session wrapper can drive several exercises through this component by
     // rebinding the inputs.
-    effect(() => this.loadGame(this.gameId(), this.phase()));
+    effect(() => this.loadGame(this.gameId(), this.phase(), this.sgf()));
 
     // Save after every confirmed move, Try another line and Go deeper
     // (handoff v4-3 section 9) — 'play'/'done' are the only stable states;
@@ -268,7 +271,17 @@ export class ExercisePageComponent {
     });
   }
 
-  private loadGame(gameId: string, phase: GamePhase | null): void {
+  /**
+   * The only thing that differs between menu and daily mode is how the
+   * exercise(s) get loaded — menu mode fetches a GameHistoryDto by gameId and
+   * tries each of its 3 phases, daily mode already has its one exercise's own
+   * SGF in hand. Both converge on the exact same Observable shape
+   * (LoadedExercise | LoadedExercise[]) and the exact same single subscribe
+   * below, which is the one place that turns a loaded exercise into
+   * execution state — there is no second, parallel execution path for daily
+   * mode once the data is in hand.
+   */
+  private loadGame(gameId: string, phase: GamePhase | null, sgf: string | null): void {
     this.state.update((s) => ({ ...s, screen: 'loading' }));
     this.solvedEmitted = false;
     // untracked: progress() changes on every move (via the save round-trip through the
@@ -278,45 +291,49 @@ export class ExercisePageComponent {
     const progress = untracked(() => this.progress());
     this.currentDepth.set(progress?.currentDepth ?? untracked(() => this.depthOn()));
 
-    this.gameHistory.getGameHistory(gameId).subscribe({
-      next: (dto) => {
-        try {
-          if (this.modeOn() === 'daily') {
-            if (!phase) throw new UnreadableExerciseError('Daily mode requires a phase');
-            const exercise = loadSingleExercise(dto, phase, this.sgfParser);
-            const topVariants = this.topVariants();
-            if (topVariants !== null) {
-              exercise.line = { ...exercise.line, variants: exercise.line.variants.slice(0, Math.max(1, topVariants)) };
-            }
-            this.dailyExercise.set(exercise);
-            this.state.set(
-              progress
-                ? resumeExerciseState(exercise.line, progress, 1 + this.currentDepth())
-                : initExerciseState(exercise.line),
-            );
-          } else {
-            const collection = loadExerciseCollection(dto, this.sgfParser);
-            this.collection.set(collection);
-            this.collectionIndex.set(0);
-            this.state.set(initExerciseState(collection[0].line));
+    const isDaily = this.modeOn() === 'daily';
+    const loaded$: Observable<LoadedExercise | LoadedExercise[]> = isDaily
+      ? this.loadDailyExercise(phase, sgf)
+      : this.gameHistory.getGameHistory(gameId).pipe(map((dto) => loadExerciseCollection(dto, this.sgfParser)));
+
+    loaded$.subscribe({
+      next: (result) => {
+        if (isDaily) {
+          const exercise = result as LoadedExercise;
+          const topVariants = this.topVariants();
+          if (topVariants !== null) {
+            exercise.line = { ...exercise.line, variants: exercise.line.variants.slice(0, Math.max(1, topVariants)) };
           }
-        } catch (error) {
-          if (error instanceof UnreadableSgfError || error instanceof UnreadableExerciseError) {
-            // Deterministic, not transient — this exact gameId/phase will never parse, so
-            // "Try again" will fail identically every time. Logged so a stuck exercise is
-            // diagnosable instead of a silent dead end (handoff v5-1: the Daily Practice flow).
-            console.error(`Exercise unreadable for game ${gameId} (${phase ?? 'menu mode'}):`, error);
-            this.state.update((s) => ({ ...s, screen: 'sgfError' }));
-          } else {
-            throw error;
-          }
+          this.dailyExercise.set(exercise);
+          this.state.set(
+            progress ? resumeExerciseState(exercise.line, progress, 1 + this.currentDepth()) : initExerciseState(exercise.line),
+          );
+        } else {
+          const collection = result as LoadedExercise[];
+          this.collection.set(collection);
+          this.collectionIndex.set(0);
+          this.state.set(initExerciseState(collection[0].line));
         }
       },
-      error: (err) => {
-        console.error(`Failed to load game ${gameId}`, err);
-        this.state.update((s) => ({ ...s, screen: 'error' }));
+      error: (error) => {
+        if (error instanceof UnreadableSgfError || error instanceof UnreadableExerciseError) {
+          // Deterministic, not transient — this exact gameId/phase will never parse, so
+          // "Try again" will fail identically every time. Logged so a stuck exercise is
+          // diagnosable instead of a silent dead end (handoff v5-1: the Daily Practice flow).
+          console.error(`Exercise unreadable for game ${gameId} (${phase ?? 'menu mode'}):`, error);
+          this.state.update((s) => ({ ...s, screen: 'sgfError' }));
+        } else {
+          console.error(`Failed to load game ${gameId}`, error);
+          this.state.update((s) => ({ ...s, screen: 'error' }));
+        }
       },
     });
+  }
+
+  /** defer: loadExerciseFromSgf can throw synchronously (unparsable/unbranchable SGF) — defer's factory catches that and turns it into this Observable's own error notification, the same channel a failed HTTP fetch uses, so loadGame's single subscribe above never needs two different error-handling shapes. */
+  private loadDailyExercise(phase: GamePhase | null, sgf: string | null): Observable<LoadedExercise> {
+    if (!phase || !sgf) return throwError(() => new UnreadableExerciseError('Daily mode requires phase and sgf'));
+    return defer(() => of(loadExerciseFromSgf(sgf, phase, this.sgfParser)));
   }
 
   /** Tapping a point plays it immediately — no preview/confirm step. */
@@ -365,7 +382,7 @@ export class ExercisePageComponent {
 
   /** The 'error' screen's primary action: re-fetches the same game instead of forcing a trip back to GamesPage first, matching GamesPage's own retry() for a transient load failure. */
   onRetryLoad(): void {
-    this.loadGame(this.gameId(), this.phase());
+    this.loadGame(this.gameId(), this.phase(), this.sgf());
   }
 
   onHintToggle(): void {

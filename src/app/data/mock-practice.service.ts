@@ -1,25 +1,27 @@
 import { Injectable, inject } from '@angular/core';
-import { map, Observable, of, switchMap } from 'rxjs';
+import { map, Observable, of } from 'rxjs';
 import { GameHistoryService } from './game-history.service';
-import type { GameHistoryDto } from './game-history.model';
-import { PracticePoolService } from './practice-pool.service';
 import { PracticeService } from './practice.service';
-import { DEFAULT_PRACTICE_PREFERENCES, type DailyPracticeSession, type PracticePreferences, type StreakInfo } from './practice.model';
+import { DEFAULT_PRACTICE_PREFERENCES, type DailyPracticeSession, type PracticePreferences, type PracticeSessionKind, type StreakInfo } from './practice.model';
 import type { ExerciseProgress } from '../exercise/exercise-state';
 import { SgfParserService } from '../sgf/sgf-parser.service';
-import { cloneSession, localIso, newSessionId, pickExercises, todayIso } from './practice-exercise-picker';
+import { asCandidates, cloneSession, localIso, newSessionId, pickExercises, todayIso } from './practice-exercise-picker';
 
 const STREAK_STRIP_DAYS = 7;
 
 const STORAGE_KEY = 'kz-practice-sessions';
 
 /**
- * Session-local Daily Practice backend, no network for the sessions
- * themselves (the practice-pool is the one real HTTP fetch — see
- * PracticePoolService) — built on top of whichever GameHistoryService is
- * configured (the real mock fixtures in dev), so exercises are picked the
- * same way a real backend would: from analysed games' phase SGFs that
- * actually have a usable branch point (buildExerciseTree doesn't throw).
+ * Session-local Daily Practice backend, no network at all for the sessions
+ * themselves — built on top of whichever GameHistoryService is configured
+ * (the real mock fixtures in dev), so exercises are picked the same way a
+ * real backend would: from analysed games' phase SGFs that actually have a
+ * usable branch point (buildExerciseTree doesn't throw). There is no local
+ * stand-in for the real backend's shared public pool (kaizan-companion's
+ * ExerciseOrigin.PUBLIC) — 'mixed' exerciseSource and "Random practice" both
+ * just reuse the chat's own (real + synthetic) games here instead; every
+ * exercise this produces is tagged origin: 'personal'. See HttpPracticeService
+ * for the real integration, where 'dataset' actually means something.
  *
  * Sessions persist to localStorage (not just an in-memory field) so a page
  * reload doesn't lose a "Random practice" round the chat hasn't finished
@@ -31,7 +33,6 @@ const STORAGE_KEY = 'kz-practice-sessions';
 export class MockPracticeService extends PracticeService {
   private readonly gameHistory = inject(GameHistoryService);
   private readonly sgfParser = inject(SgfParserService);
-  private readonly practicePool = inject(PracticePoolService);
 
   private sessions: DailyPracticeSession[] = loadSessions();
   private preferences: PracticePreferences = { ...DEFAULT_PRACTICE_PREFERENCES };
@@ -45,23 +46,7 @@ export class MockPracticeService extends PracticeService {
     const existing = this.findDailySession(todayIso());
     if (existing) return of(cloneSession(existing));
 
-    return this.gameHistory.listGames().pipe(
-      switchMap((dtos) => this.candidatePool(dtos)),
-      map((candidates) => {
-        const exercises = pickExercises(this.sgfParser, candidates, {
-          count: this.preferences.exerciseCount,
-          topVariants: this.preferences.topVariants,
-          continuationDepth: this.preferences.continuationDepth,
-        });
-        return this.upsertSession({
-          id: newSessionId(),
-          kind: 'daily',
-          date: todayIso(),
-          exercises,
-          completed: exercises.length === 0,
-        });
-      }),
-    );
+    return this.sessionFromOwnGames('daily', this.preferences.exerciseCount, false);
   }
 
   /**
@@ -71,43 +56,35 @@ export class MockPracticeService extends PracticeService {
    * docs/backend-contract/daily-practice-endpoint-proposal.md, this must
    * never touch the one daily_session_db row the streak reads, so (like
    * startRandomPractice) it always adds a brand new `kind: 'generated'`
-   * session rather than replacing today's daily one. Unlike
-   * startRandomPractice, it draws from the chat's own games (shuffled), not
-   * the bundled pool.
+   * session rather than replacing today's daily one.
    */
   startNewRound(): Observable<DailyPracticeSession> {
-    return this.gameHistory.listGames().pipe(
-      switchMap((dtos) => this.candidatePool(dtos)),
-      map((candidates) => {
-        const exercises = pickExercises(this.sgfParser, candidates, {
-          count: this.preferences.exerciseCount,
-          shuffled: true,
-          topVariants: this.preferences.topVariants,
-          continuationDepth: this.preferences.continuationDepth,
-        });
-        return this.upsertSession({ id: newSessionId(), kind: 'generated', date: todayIso(), exercises, completed: exercises.length === 0 });
-      }),
-    );
+    return this.sessionFromOwnGames('generated', this.preferences.exerciseCount, true);
   }
 
   /**
-   * "Random practice" — ignores the chat's own games and the exerciseSource
-   * preference entirely: the whole session comes from the bundled
-   * practice-pool. Unlike startTodaySession/startNewRound, this always adds
-   * a brand new `kind: 'generated'` session rather than replacing anything —
-   * the chat can have any number of these alongside the one daily session,
-   * and none of them affect the streak (see getStreak()).
+   * "Random practice" — always adds a brand new `kind: 'generated'` session
+   * rather than replacing anything — the chat can have any number of these
+   * alongside the one daily session, and none of them affect the streak (see
+   * getStreak()). `count` comes from the dialog, independent of the
+   * exerciseCount preference. See this class's own doc comment: no distinct
+   * pool exists in the mock, so this draws from the same own/synthetic games
+   * startNewRound does — HttpPracticeService is where this actually differs.
    */
   startRandomPractice(count: number): Observable<DailyPracticeSession> {
-    return this.practicePool.pool$.pipe(
-      map((pool) => {
-        const exercises = pickExercises(this.sgfParser, pool, {
+    return this.sessionFromOwnGames('generated', count, true);
+  }
+
+  private sessionFromOwnGames(kind: PracticeSessionKind, count: number, shuffled: boolean): Observable<DailyPracticeSession> {
+    return this.gameHistory.listGames().pipe(
+      map((dtos) => {
+        const exercises = pickExercises(this.sgfParser, asCandidates(dtos, 'personal'), {
           count,
-          shuffled: true,
+          shuffled,
           topVariants: this.preferences.topVariants,
           continuationDepth: this.preferences.continuationDepth,
         });
-        return this.upsertSession({ id: newSessionId(), kind: 'generated', date: todayIso(), exercises, completed: exercises.length === 0 });
+        return this.upsertSession({ id: newSessionId(), kind, date: todayIso(), exercises, completed: exercises.length === 0 });
       }),
     );
   }
@@ -120,16 +97,6 @@ export class MockPracticeService extends PracticeService {
   getSession(sessionId: string): Observable<DailyPracticeSession | null> {
     const session = this.sessions.find((s) => s.id === sessionId);
     return of(session ? cloneSession(session) : null);
-  }
-
-  /**
-   * 'own' (default): just the chat's own games. 'mixed': the chat's own games
-   * first, padded with the practice-pool so a thin own-games pool still
-   * fills a session.
-   */
-  private candidatePool(dtos: GameHistoryDto[]): Observable<GameHistoryDto[]> {
-    if (this.preferences.exerciseSource !== 'mixed') return of(dtos);
-    return this.practicePool.pool$.pipe(map((pool) => [...dtos, ...pool]));
   }
 
   recordResult(sessionId: string, exerciseId: string): Observable<void> {

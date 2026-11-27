@@ -118,6 +118,10 @@ export class DailyPracticeHomeComponent {
     return `${toPlay} to play · ${exercise.boardSize}×${exercise.boardSize} · move ${exercise.moveNumber}`;
   }
 
+  rowAriaLabel(exercise: PracticeExerciseRef): string {
+    return exercise.origin === 'dataset' ? 'Open community exercise' : `Open exercise vs ${exercise.opponentName}`;
+  }
+
   /** How many of a generated session's own exercises are done, for its row in the "Other sessions" list. */
   sessionProgressLabel(session: DailyPracticeSession): string {
     if (session.completed) return 'Done';

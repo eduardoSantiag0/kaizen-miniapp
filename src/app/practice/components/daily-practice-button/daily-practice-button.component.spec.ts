@@ -8,6 +8,8 @@ import type { DailyPracticeSession, PracticeExerciseRef } from '../../../data/pr
 function exerciseRef(overrides: Partial<PracticeExerciseRef> & Pick<PracticeExerciseRef, 'id' | 'gameId' | 'phase'>): PracticeExerciseRef {
   return {
     completed: false,
+    origin: 'personal',
+    sgf: '(;FF[4]SZ[19])',
     opponentName: 'kitsune77',
     opponentRank: '4k',
     boardSize: 19,

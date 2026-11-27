@@ -3,10 +3,14 @@ import type { ExerciseProgress } from '../exercise/exercise-state';
 import type { DailyPracticeSession, PracticePreferences, StreakInfo } from './practice.model';
 
 /**
- * Abstraction over the (not yet implemented) Daily Practice backend — see
- * docs/backend-contract/daily-practice-endpoint-proposal.md. Same pattern as
- * GameHistoryService: swap the provider in app.config.ts once a real
- * backend exists, nothing that injects PracticeService needs to change.
+ * Abstraction over the Daily Practice backend — kaizan-companion's
+ * PracticeController/PracticeService implement docs/backend-contract/
+ * daily-practice-endpoint-proposal.md for real now (HttpPracticeService).
+ * Same pattern as GameHistoryService: swap the provider in app.config.ts
+ * (environment.useRealBackend), nothing that injects PracticeService needs
+ * to change. MockPracticeService remains the local-dev-only stand-in
+ * (CLAUDE.md's MVP scope: local frontend work shouldn't depend on a running
+ * backend).
  */
 export abstract class PracticeService {
   /** null when the chat hasn't started a session today yet. */
@@ -15,18 +19,18 @@ export abstract class PracticeService {
   abstract startTodaySession(): Observable<DailyPracticeSession>;
   /**
    * "Continue practicing" once today's original session is already complete
-   * (Daily Practice Home) — unlike startTodaySession, this always replaces
-   * today's `kind: 'daily'` session with a fresh batch instead of returning
-   * the existing one. Speculative, like every other member here: no
-   * corresponding backend endpoint exists yet (see HttpPracticeService and
-   * docs/backend-contract/daily-practice-endpoint-proposal.md).
+   * (Daily Practice Home) — unlike startTodaySession, this always adds a
+   * fresh `kind: 'generated'` batch rather than returning/replacing the
+   * existing one (the one `kind: 'daily'` session stays untouched, so it
+   * never un-earns the streak already counted for today).
    */
   abstract startNewRound(): Observable<DailyPracticeSession>;
   /**
    * "Random practice" (Daily Practice Home, below Start practice) — builds a
-   * brand new `kind: 'generated'` session entirely from the bundled
-   * practice-pool (public/practice-pool/practice-pool.json), ignoring the
-   * chat's own games and the exerciseSource preference entirely. Unlike
+   * brand new `kind: 'generated'` session entirely from the shared public
+   * pool (kaizan-companion's ExerciseOrigin.PUBLIC, seeded from
+   * dataset/games.json — see POST /practice/random), ignoring the chat's own
+   * games and the exerciseSource preference entirely. Unlike
    * startTodaySession/startNewRound, this never replaces anything — every
    * call adds one more session to the list, alongside the one always-present
    * daily session, and none of them ever affect the streak. `count` (1-10)

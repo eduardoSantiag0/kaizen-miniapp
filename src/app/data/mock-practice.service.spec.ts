@@ -1,6 +1,4 @@
 ﻿import { TestBed } from '@angular/core/testing';
-import { provideHttpClient } from '@angular/common/http';
-import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { of } from 'rxjs';
 import { MockPracticeService } from './mock-practice.service';
 import { GameHistoryService } from './game-history.service';
@@ -43,7 +41,6 @@ class StubGameHistoryService extends GameHistoryService {
 describe('MockPracticeService', () => {
   let service: MockPracticeService;
   let stubHistory: StubGameHistoryService;
-  let httpMock: HttpTestingController;
 
   beforeEach(() => {
     localStorage.clear(); // sessions persist here — isolate each test
@@ -52,18 +49,14 @@ describe('MockPracticeService', () => {
       providers: [
         MockPracticeService,
         SgfParserService,
-        provideHttpClient(),
-        provideHttpClientTesting(),
         { provide: GameHistoryService, useClass: StubGameHistoryService },
       ],
     });
     service = TestBed.inject(MockPracticeService);
     stubHistory = TestBed.inject(GameHistoryService) as unknown as StubGameHistoryService;
-    httpMock = TestBed.inject(HttpTestingController);
   });
 
   afterEach(() => {
-    httpMock.verify();
     localStorage.clear();
   });
 
@@ -83,6 +76,7 @@ describe('MockPracticeService', () => {
     service.startTodaySession().subscribe((session) => {
       expect(session.exercises.length).toBe(2); // g1-opening, g2-endgame — middlegame has no branch point
       expect(session.exercises.map((e) => e.gameId)).toEqual(['g1', 'g2']);
+      expect(session.exercises.every((e) => e.origin === 'personal')).toBe(true); // the chat's own games, never the pool
       expect(session.kind).toBe('daily');
       expect(session.completed).toBe(false);
       done();
@@ -150,65 +144,31 @@ describe('MockPracticeService', () => {
     });
   });
 
-  it('"own" exerciseSource never fetches the community pool', (done) => {
-    stubHistory.dtos = [dto({ id: 'g1', openingAnalysed: EXERCISE_SGF })];
-
-    service.startTodaySession().subscribe((session) => {
-      expect(session.exercises.length).toBe(1);
-      httpMock.expectNone('practice-pool/practice-pool.json');
-      done();
-    });
-  });
-
-  it('"mixed" exerciseSource pads a thin own-games session with the community pool, own games first', (done) => {
-    stubHistory.dtos = [dto({ id: 'g1', openingAnalysed: EXERCISE_SGF })]; // only 1 exercise-able phase, well under the 5-exercise cap
-
-    service.setPreferences({ topVariants: 3, continuationDepth: 4, exerciseSource: 'mixed', exerciseCount: 5 }).subscribe(() => {
-      service.startTodaySession().subscribe((session) => {
-        expect(session.exercises.length).toBe(5); // capped — the pool had one spare candidate past the cap
-        expect(session.exercises[0].gameId).toBe('g1');
-        expect(session.exercises.slice(1).map((e) => e.gameId)).toEqual(['pool-1', 'pool-2', 'pool-3', 'pool-4']);
-        done();
-      });
-
-      httpMock.expectOne('practice-pool/practice-pool.json').flush([
-        dto({ id: 'pool-1', openingAnalysed: EXERCISE_SGF }),
-        dto({ id: 'pool-2', openingAnalysed: EXERCISE_SGF }),
-        dto({ id: 'pool-3', openingAnalysed: EXERCISE_SGF }),
-        dto({ id: 'pool-4', openingAnalysed: EXERCISE_SGF }),
-        dto({ id: 'pool-5', openingAnalysed: EXERCISE_SGF }),
-      ]);
-    });
-  });
-
-  it('"mixed" exerciseSource degrades to "own" if the community pool fails to load', (done) => {
+  it('"mixed" exerciseSource behaves like "own" in the mock — there is no local stand-in for the real backend\'s shared public pool', (done) => {
     stubHistory.dtos = [dto({ id: 'g1', openingAnalysed: EXERCISE_SGF })];
 
     service.setPreferences({ topVariants: 3, continuationDepth: 4, exerciseSource: 'mixed', exerciseCount: 5 }).subscribe(() => {
       service.startTodaySession().subscribe((session) => {
         expect(session.exercises.length).toBe(1);
         expect(session.exercises[0].gameId).toBe('g1');
+        expect(session.exercises[0].origin).toBe('personal');
         done();
       });
-
-      httpMock.expectOne('practice-pool/practice-pool.json').flush('broken', { status: 500, statusText: 'Server Error' });
     });
   });
 
-  it('startRandomPractice builds a session from the practice-pool alone, ignoring the chat\'s own games and the exerciseSource preference', (done) => {
-    stubHistory.dtos = [dto({ id: 'g1', openingAnalysed: EXERCISE_SGF })]; // 'own' is the default — would normally be the only source
+  it('startRandomPractice draws from the chat\'s own (real + synthetic) games, tagged "personal" — no distinct pool exists in the mock, see HttpPracticeService for the real integration', (done) => {
+    stubHistory.dtos = [
+      dto({ id: 'g1', openingAnalysed: EXERCISE_SGF }),
+      dto({ id: 'g2', openingAnalysed: EXERCISE_SGF }),
+    ];
 
     service.startRandomPractice(2).subscribe((session) => {
       expect(session.kind).toBe('generated');
       expect(session.exercises.length).toBe(2);
-      expect(session.exercises.map((e) => e.gameId).sort()).toEqual(['pool-1', 'pool-2']);
+      expect(session.exercises.every((e) => e.origin === 'personal')).toBe(true);
       done();
     });
-
-    httpMock.expectOne('practice-pool/practice-pool.json').flush([
-      dto({ id: 'pool-1', openingAnalysed: EXERCISE_SGF }),
-      dto({ id: 'pool-2', openingAnalysed: EXERCISE_SGF }),
-    ]);
   });
 
   it('honors the exerciseCount preference when capping the daily session', (done) => {
@@ -224,27 +184,25 @@ describe('MockPracticeService', () => {
     });
   });
 
-  it('startRandomPractice stays capped at the requested count even against a large pool (100 games, 300 candidate phases), independent of the exerciseCount preference', (done) => {
-    const largePool = Array.from({ length: 100 }, (_, i) => dto({ id: `pool-${i}`, openingAnalysed: EXERCISE_SGF }));
+  it('startRandomPractice stays capped at the requested count even against many candidates (100 games), independent of the exerciseCount preference', (done) => {
+    stubHistory.dtos = Array.from({ length: 100 }, (_, i) => dto({ id: `g-${i}`, openingAnalysed: EXERCISE_SGF }));
 
     service.setPreferences({ topVariants: 3, continuationDepth: 4, exerciseSource: 'own', exerciseCount: 2 }).subscribe(() => {
       service.startRandomPractice(7).subscribe((session) => {
         expect(session.exercises.length).toBe(7); // the dialog's own count, not the exerciseCount preference (2)
         done();
       });
-
-      httpMock.expectOne('practice-pool/practice-pool.json').flush(largePool);
     });
   });
 
   it('startRandomPractice never replaces the daily session or a previous generated one — every call adds a new session', (done) => {
-    stubHistory.dtos = [dto({ id: 'g1', openingAnalysed: EXERCISE_SGF })];
-    const pool = [dto({ id: 'pool-1', openingAnalysed: EXERCISE_SGF }), dto({ id: 'pool-2', openingAnalysed: EXERCISE_SGF })];
+    stubHistory.dtos = [
+      dto({ id: 'g1', openingAnalysed: EXERCISE_SGF }),
+      dto({ id: 'g2', openingAnalysed: EXERCISE_SGF }),
+    ];
 
     service.startTodaySession().subscribe((daily) => {
       service.startRandomPractice(1).subscribe((firstRound) => {
-        // practice-pool.json is fetched once and cached (shareReplay) — the second
-        // call below reuses it synchronously, no second HTTP request.
         service.startRandomPractice(1).subscribe((secondRound) => {
           expect(firstRound.id).not.toBe(secondRound.id);
           expect(firstRound.id).not.toBe(daily.id);
@@ -257,8 +215,6 @@ describe('MockPracticeService', () => {
           });
         });
       });
-
-      httpMock.expectOne('practice-pool/practice-pool.json').flush(pool);
     });
   });
 
@@ -363,7 +319,6 @@ describe('MockPracticeService', () => {
 
     it('a "generated" (Random practice) session on the same date never counts towards the streak', (done) => {
       stubHistory.dtos = [dto({ id: 'g1', openingAnalysed: EXERCISE_SGF })];
-      const pool = [dto({ id: 'pool-1', openingAnalysed: EXERCISE_SGF })];
 
       service.startRandomPractice(1).subscribe((round) => {
         service.recordResult(round.id, round.exercises[0].id).subscribe(() => {
@@ -373,8 +328,6 @@ describe('MockPracticeService', () => {
           });
         });
       });
-
-      httpMock.expectOne('practice-pool/practice-pool.json').flush(pool);
     });
   });
 

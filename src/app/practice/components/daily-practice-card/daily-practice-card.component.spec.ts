@@ -80,8 +80,8 @@ describe('DailyPracticeCardComponent', () => {
       date: '2026-01-01',
       completed: false,
       exercises: [
-        { id: 'e1', gameId: 'g1', phase: 'opening', completed: false, opponentName: '', opponentRank: '', boardSize: 19, userSign: 1, moveNumber: 1, topVariants: 3, currentDepth: 4, selectedVariant: null, step: 1 },
-        { id: 'e2', gameId: 'g1', phase: 'middlegame', completed: false, opponentName: '', opponentRank: '', boardSize: 19, userSign: 1, moveNumber: 1, topVariants: 3, currentDepth: 4, selectedVariant: null, step: 1 },
+        { id: 'e1', gameId: 'g1', phase: 'opening', completed: false, origin: 'personal', sgf: '(;FF[4]SZ[19])', opponentName: '', opponentRank: '', boardSize: 19, userSign: 1, moveNumber: 1, topVariants: 3, currentDepth: 4, selectedVariant: null, step: 1 },
+        { id: 'e2', gameId: 'g1', phase: 'middlegame', completed: false, origin: 'personal', sgf: '(;FF[4]SZ[19])', opponentName: '', opponentRank: '', boardSize: 19, userSign: 1, moveNumber: 1, topVariants: 3, currentDepth: 4, selectedVariant: null, step: 1 },
       ],
     };
     TestBed.overrideProvider(PracticeService, { useValue: stub });
@@ -99,8 +99,8 @@ describe('DailyPracticeCardComponent', () => {
       date: '2026-01-01',
       completed: false,
       exercises: [
-        { id: 'e1', gameId: 'g1', phase: 'opening', completed: true, opponentName: '', opponentRank: '', boardSize: 19, userSign: 1, moveNumber: 1, topVariants: 3, currentDepth: 4, selectedVariant: null, step: 1 },
-        { id: 'e2', gameId: 'g1', phase: 'middlegame', completed: false, opponentName: '', opponentRank: '', boardSize: 19, userSign: 1, moveNumber: 1, topVariants: 3, currentDepth: 4, selectedVariant: null, step: 1 },
+        { id: 'e1', gameId: 'g1', phase: 'opening', completed: true, origin: 'personal', sgf: '(;FF[4]SZ[19])', opponentName: '', opponentRank: '', boardSize: 19, userSign: 1, moveNumber: 1, topVariants: 3, currentDepth: 4, selectedVariant: null, step: 1 },
+        { id: 'e2', gameId: 'g1', phase: 'middlegame', completed: false, origin: 'personal', sgf: '(;FF[4]SZ[19])', opponentName: '', opponentRank: '', boardSize: 19, userSign: 1, moveNumber: 1, topVariants: 3, currentDepth: 4, selectedVariant: null, step: 1 },
       ],
     };
     TestBed.overrideProvider(PracticeService, { useValue: stub });
@@ -117,7 +117,7 @@ describe('DailyPracticeCardComponent', () => {
       kind: 'daily',
       date: '2026-01-01',
       completed: true,
-      exercises: [{ id: 'e1', gameId: 'g1', phase: 'opening', completed: true, opponentName: '', opponentRank: '', boardSize: 19, userSign: 1, moveNumber: 1, topVariants: 3, currentDepth: 4, selectedVariant: null, step: 1 }],
+      exercises: [{ id: 'e1', gameId: 'g1', phase: 'opening', completed: true, origin: 'personal', sgf: '(;FF[4]SZ[19])', opponentName: '', opponentRank: '', boardSize: 19, userSign: 1, moveNumber: 1, topVariants: 3, currentDepth: 4, selectedVariant: null, step: 1 }],
     };
     TestBed.overrideProvider(PracticeService, { useValue: stub });
     create().detectChanges();

@@ -11,6 +11,8 @@ function exerciseRef(overrides: Partial<PracticeExerciseRef> & Pick<PracticeExer
     gameId: 'g1',
     phase: 'opening',
     completed: false,
+    origin: 'personal',
+    sgf: '(;FF[4]SZ[19])',
     opponentName: 'kitsune77',
     opponentRank: '4k',
     boardSize: 19,
@@ -162,6 +164,21 @@ describe('DailyPracticeHomeComponent', () => {
     expect(fixture.componentInstance.rowStatus(session.exercises[0])).toBe('next');
     expect(fixture.componentInstance.rowStatus(session.exercises[1])).toBe('ahead');
     expect(fixture.nativeElement.textContent).toContain('3 exercises today');
+  });
+
+  it('shows "Community exercise" instead of a name for a dataset-origin row, never the raw opponentName', () => {
+    const session: DailyPracticeSession = {
+      id: 'daily-1',
+      kind: 'daily',
+      date: '2026-01-01',
+      completed: false,
+      exercises: [exerciseRef({ id: 'e1', origin: 'dataset', opponentName: 'Unknown opponent', opponentRank: '' })],
+    };
+    create({ session });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('Community exercise');
+    expect(fixture.nativeElement.textContent).not.toContain('Unknown opponent');
   });
 
   it('shows Continue practice once at least one exercise is solved, naming the right exercise row as Solved/next', () => {

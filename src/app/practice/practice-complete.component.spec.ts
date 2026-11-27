@@ -10,6 +10,8 @@ function exerciseRef(overrides: Partial<PracticeExerciseRef> & Pick<PracticeExer
     gameId: 'g1',
     phase: 'opening',
     completed: true,
+    origin: 'personal',
+    sgf: '(;FF[4]SZ[19])',
     opponentName: 'kitsune77',
     opponentRank: '4k',
     boardSize: 19,

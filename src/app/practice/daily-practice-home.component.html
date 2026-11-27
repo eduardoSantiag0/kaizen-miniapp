@@ -61,7 +61,7 @@
                 type="button"
                 class="kz-home-row"
                 [class.kz-home-row--solved]="rowStatus(exercise) === 'solved'"
-                [attr.aria-label]="'Open exercise vs ' + exercise.opponentName"
+                [attr.aria-label]="rowAriaLabel(exercise)"
                 (click)="openExercise(exercise)"
               >
                 <div class="kz-home-row-thumb" [style.--kz-thumb-board-size]="exercise.boardSize" aria-hidden="true">
@@ -69,9 +69,13 @@
                 </div>
                 <div class="kz-home-row-text">
                   <p class="kz-home-row-name-line">
-                    vs <strong>{{ exercise.opponentName }}</strong>
-                    @if (exercise.opponentRank) {
-                      {{ exercise.opponentRank }}
+                    @if (exercise.origin === 'dataset') {
+                      Community exercise
+                    } @else {
+                      vs <strong>{{ exercise.opponentName }}</strong>
+                      @if (exercise.opponentRank) {
+                        {{ exercise.opponentRank }}
+                      }
                     }
                   </p>
                   <p class="kz-home-row-meta">{{ rowMetaText(exercise) }}</p>
@@ -104,7 +108,7 @@
       }
 
       <button type="button" class="kz-home-random" (click)="openRandomPracticeDialog()">Random practice</button>
-      <p class="kz-home-primary-note">For testing — a separate session from the bundled practice pool, not your own games.</p>
+      <p class="kz-home-primary-note">For testing — a separate session from the shared public pool, not your own games.</p>
 
       @if (generatedSessions().length > 0) {
         <div class="kz-home-other-sessions">

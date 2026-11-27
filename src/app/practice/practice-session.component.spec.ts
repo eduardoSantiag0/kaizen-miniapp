@@ -17,6 +17,10 @@ function exerciseRef(overrides: Partial<PracticeExerciseRef> & Pick<PracticeExer
   return {
     phase: 'opening',
     completed: false,
+    origin: 'personal',
+    // ExercisePageComponent's daily mode now builds straight off this, never via GameHistoryService —
+    // matches StubGameHistoryService's own g1/g2 dtos so either path would agree, were it still used.
+    sgf: overrides.gameId === 'g2' ? SGF_B : SGF_A,
     opponentName: 'kitsune77',
     opponentRank: '4k',
     boardSize: 9,

@@ -53,15 +53,13 @@ export function loadExerciseCollection(dto: GameHistoryDto, sgfParser: SgfParser
 }
 
 /**
- * Daily Practice mode: loads exactly the one phase the session already
- * knows about — no "try all 3, keep the first that parses" heuristic,
- * since there's a real exercise reference (gameId + phase) driving this,
- * not a bare gameId.
+ * Daily Practice mode: builds the one exercise the session already resolved
+ * to a single phase + SGF (PracticeExerciseRef.sgf, straight from the
+ * backend's ExerciseDto — personal or dataset alike, same shape either way)
+ * — no "try all 3, keep the first that parses" heuristic, since there's
+ * nothing left to try: the backend already picked this exact phase.
  */
-export function loadSingleExercise(dto: GameHistoryDto, phase: GamePhase, sgfParser: SgfParserService): LoadedExercise {
-  const sgf = dto[phaseKey(phase)];
-  if (!sgf) throw new UnreadableExerciseError(`No SGF for phase "${phase}"`);
-
+export function loadExerciseFromSgf(sgf: string, phase: GamePhase, sgfParser: SgfParserService): LoadedExercise {
   const tree = sgfParser.parse(sgf);
   const line = buildExerciseTree(tree.root);
   return { phase, line, ...gameInfo(tree) };

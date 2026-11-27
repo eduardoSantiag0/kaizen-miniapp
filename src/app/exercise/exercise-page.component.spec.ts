@@ -489,6 +489,7 @@ describe('ExercisePageComponent', () => {
       fixture = TestBed.createComponent(ExercisePageComponent);
       fixture.componentRef.setInput('mode', 'daily');
       fixture.componentRef.setInput('phase', 'middlegame');
+      fixture.componentRef.setInput('sgf', BRANCHING_SGF);
       return fixture;
     }
 
@@ -582,8 +583,9 @@ describe('ExercisePageComponent', () => {
     }));
 
     it('Go deeper calls onGoDeeper once KataGo has more of the line stored', fakeAsync(() => {
-      stubHistory.dto = { ...stubHistory.dto, middlegameAnalysed: LONG_BRANCHING_SGF };
-      createDailyFixture().detectChanges();
+      createDailyFixture();
+      fixture.componentRef.setInput('sgf', LONG_BRANCHING_SGF);
+      fixture.detectChanges();
 
       fixture.componentInstance.onVertexTap([4, 2]); // ec
       tick(900); // fc

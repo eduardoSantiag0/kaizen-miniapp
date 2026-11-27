@@ -1,6 +1,19 @@
 import type { GamePhase } from './game-history.model';
 
 /**
+ * Where one exercise's game actually came from — the chat's own analysed
+ * games ('personal') or the shared public pool every chat can draw from
+ * ('dataset' — kaizan-companion's ExerciseOrigin.PUBLIC, seeded from
+ * dataset/games.json, no owning chat). Purely an identification tag the
+ * real backend now sets on every ExerciseDto: the exercise engine itself
+ * (exercise-tree.ts/ExercisePageComponent) never reads it and never branches
+ * on it — both origins already resolve to the exact same ExerciseTree
+ * through the exact same code path, only the display layer (daily-practice-
+ * home.component.html's "Community exercise" row) cares.
+ */
+export type ExerciseOrigin = 'personal' | 'dataset';
+
+/**
  * One exercise within a Daily Practice session (RF03.1/RF03.6). Not yet a
  * real backend field set — see docs/backend-contract/daily-practice-endpoint-proposal.md.
  */
@@ -9,6 +22,16 @@ export interface PracticeExerciseRef {
   gameId: string;
   phase: GamePhase;
   completed: boolean;
+  origin: ExerciseOrigin;
+  /**
+   * This exercise's own phase SGF, resolved server-side (the backend already
+   * has it in hand via its own game↔exercise join) — a 'dataset' exercise's
+   * game belongs to no chat, so there's no GET /history to resolve it from
+   * the way a 'personal' exercise's gameId could. ExercisePageComponent's
+   * daily mode builds straight off this, never via GameHistoryService (see
+   * exercise-source.ts's loadExerciseFromSgf) — that service stays menu-mode-only.
+   */
+  sgf: string;
   /**
    * Display fields for DailyPracticeHome's exercise rows (handoff
    * v4-kaizen-daily-practice section 4 — "vs kitsune77 4k" / "Black to play
@@ -64,9 +87,10 @@ export interface DailyPracticeSession {
  */
 /**
  * 'own' (default): only exercises built from the chat's own analyzed games.
- * 'mixed': pads a session with the bundled practice-pool (public/practice-pool/
- * practice-pool.json) once the chat's own games run out, instead of a
- * shorter session — see PracticePoolService.
+ * 'mixed': pads a session with the shared public pool once the chat's own
+ * games run out, instead of a shorter session — resolved server-side now
+ * (kaizan-companion's PracticeService.populateExercises); MockPracticeService
+ * has no local pool of its own to pad with, so 'mixed' behaves like 'own' there.
  */
 export type ExerciseSource = 'own' | 'mixed';
 

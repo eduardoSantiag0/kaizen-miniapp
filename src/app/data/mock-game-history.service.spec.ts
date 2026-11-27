@@ -17,11 +17,6 @@ describe('MockGameHistoryService', () => {
 
   afterEach(() => httpMock.verify());
 
-  /** getGameHistory checks the bundled practice-pool first (see PracticePoolService) — flush it empty so the real fixture fetch underneath is reached, same as every pre-pool test here expected. */
-  function flushEmptyPool(): void {
-    httpMock.expectOne('practice-pool/practice-pool.json').flush([]);
-  }
-
   it('fetches all three phase SGFs and maps them onto a GameHistoryDto, ignoring the gameId', (done) => {
     service.getGameHistory('whatever-id').subscribe((dto) => {
       expect(dto.id).toBe('whatever-id');
@@ -31,8 +26,6 @@ describe('MockGameHistoryService', () => {
       expect(dto.endgameAnalysed).toBe('ENDGAME SGF TEXT');
       done();
     });
-
-    flushEmptyPool();
 
     const requests = httpMock.match(() => true);
     expect(requests.length).toBe(3);
@@ -45,29 +38,6 @@ describe('MockGameHistoryService', () => {
     }
   });
 
-  it("resolves a practice-pool entry's gameId directly, without fetching the real fixture triplet", (done) => {
-    service.getGameHistory('pool-7').subscribe((dto) => {
-      expect(dto.id).toBe('pool-7');
-      expect(dto.openingAnalysed).toBe('POOL SGF TEXT');
-      done();
-    });
-
-    httpMock.expectOne('practice-pool/practice-pool.json').flush([
-      {
-        id: 'pool-7',
-        correlationId: 'pool-7',
-        openingAnalysed: 'POOL SGF TEXT',
-        middlegameAnalysed: null,
-        endgameAnalysed: null,
-        blackPlayer: null,
-        whitePlayer: null,
-        gameRank: null,
-      },
-    ]);
-
-    httpMock.expectNone(() => true); // no fixture fetch once the pool already answered
-  });
-
   it('derives blackPlayer/whitePlayer/gameRank from the opening phase\'s PB/PW/BR/WR tags (mirrors AnalysisAggregator.setPlayersInfo)', (done) => {
     service.getGameHistory('g1').subscribe((dto) => {
       expect(dto.blackPlayer).toBe('gakutakunoku');
@@ -75,8 +45,6 @@ describe('MockGameHistoryService', () => {
       expect(dto.gameRank).toBe('5k/2k');
       done();
     });
-
-    flushEmptyPool();
 
     for (const req of httpMock.match(() => true)) {
       if (req.request.url.includes('OPENING')) {

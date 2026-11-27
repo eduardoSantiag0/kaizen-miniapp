@@ -5,7 +5,6 @@ import { environment } from '../../environments/environment';
 import { TelegramService } from '../core/telegram.service';
 import { GameHistoryService } from './game-history.service';
 import type { GameHistoryDto } from './game-history.model';
-import { PracticePoolService } from './practice-pool.service';
 
 /**
  * Real HTTP-backed GameHistoryService, per
@@ -17,7 +16,6 @@ import { PracticePoolService } from './practice-pool.service';
 export class HttpGameHistoryService extends GameHistoryService {
   private readonly http = inject(HttpClient);
   private readonly telegram = inject(TelegramService);
-  private readonly practicePool = inject(PracticePoolService);
 
   private static readonly HISTORY_PATH = '/kaizan/api/v1/katago/history';
 
@@ -29,21 +27,15 @@ export class HttpGameHistoryService extends GameHistoryService {
   }
 
   /**
-   * A 'mixed'/"Random practice" exercise's gameId may be one of the bundled
-   * practice-pool's own entries, which the real backend has never heard of —
-   * checked first (no network call), before asking the backend for one of
-   * the chat's own real games.
+   * Menu mode only (ExercisePageComponent) — Daily Practice's own exercises
+   * (personal or dataset alike) carry their SGF directly on the exercise
+   * itself now (PracticeExerciseRef.sgf), never through a gameId lookup here.
    */
   getGameHistory(gameId: string): Observable<GameHistoryDto> {
-    return this.practicePool.findById(gameId).pipe(
-      switchMap((pooled) => {
-        if (pooled) return of(pooled);
-        return this.listGames().pipe(
-          switchMap((games) => {
-            const found = games.find((game) => game.id === gameId);
-            return found ? of(found) : throwError(() => new Error(`Game ${gameId} not found`));
-          }),
-        );
+    return this.listGames().pipe(
+      switchMap((games) => {
+        const found = games.find((game) => game.id === gameId);
+        return found ? of(found) : throwError(() => new Error(`Game ${gameId} not found`));
       }),
     );
   }
