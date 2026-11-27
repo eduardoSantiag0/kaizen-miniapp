@@ -20,13 +20,34 @@
         Daily Practice
       </button>
     }
-    @if (currentExercise()) {
+    @if (rejectedExerciseNumbers()) {
+      <p class="kz-session-sync" role="status">Results rejected for exercises {{ rejectedExerciseNumbers() }}.</p>
+    }
+    @if (pendingExerciseNumbers()) {
+      <div class="kz-session-sync" role="status">
+        @if (syncingCompletion()) {
+          Saving results for exercises {{ pendingExerciseNumbers() }}.
+        } @else {
+          Results pending for exercises {{ pendingExerciseNumbers() }}.
+          <button type="button" class="kz-session-retry" (click)="retrySync()">Retry sync</button>
+        }
+      </div>
+    }
+    @if (finishedLocally()) {
+      <kz-paper-background />
+      <div class="kz-session-state" role="status">
+        <p class="kz-session-state-title">Practice solved on this device</p>
+        <p class="kz-session-state-body">{{ isGeneratedSession() ? 'The session updates after the server confirms your results.' : 'Session completion and streak update after the server confirms your results.' }}</p>
+        <button type="button" class="kz-session-retry" (click)="back()">Back to practice</button>
+      </div>
+    } @else if (currentExercise()) {
       <kz-exercise-page
         mode="daily"
+        [practiceExerciseId]="currentExercise()!.id"
         [gameId]="currentExercise()!.gameId"
         [phase]="currentExercise()!.phase"
         [sgf]="currentExercise()!.sgf"
-        [depth]="currentExercise()!.currentDepth"
+        [depth]="currentExercise()!.requiredDepth"
         [topVariants]="currentExercise()!.topVariants"
         [progress]="currentProgress()"
         [sessionLabel]="sessionLabel()"

@@ -25,12 +25,13 @@ export function newSessionId(): string {
   return crypto.randomUUID();
 }
 
-export function localIso(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
+export const PRACTICE_TIME_ZONE = 'America/Sao_Paulo';
 
-export function todayIso(): string {
-  return localIso(new Date());
+export function todayIso(now = new Date()): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: PRACTICE_TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(now);
+  return ['year', 'month', 'day'].map((type) => parts.find((part) => part.type === type)!.value).join('-');
 }
 
 /** Fisher-Yates, not a sort-by-random-key — doesn't mutate its argument. */
@@ -90,9 +91,7 @@ export function pickExercises(
         sgf,
         completed: false,
         topVariants: options.topVariants ?? 3,
-        currentDepth: options.continuationDepth ?? 4,
-        selectedVariant: null,
-        step: 1,
+        requiredDepth: options.continuationDepth ?? 4,
         ...displayInfo(root),
       });
     } catch {

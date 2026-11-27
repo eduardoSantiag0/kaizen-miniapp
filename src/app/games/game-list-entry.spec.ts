@@ -57,8 +57,8 @@ describe('deriveGameListEntry', () => {
     expect(entry.won).toBe(true); // RE[B+R], user is black
   });
 
-  it('status "running": a phase SGF exists but has no branch point', () => {
-    const linearSgf = '(;FF[4]SZ[19]PL[B];B[pd];W[dp];B[pq];W[dd])';
+  it('status "running": a linear game SGF lacks a player-to-move marker', () => {
+    const linearSgf = '(;FF[4]SZ[19];B[pd];W[dp];B[pq];W[dd])';
     const entry = deriveGameListEntry(dto({ openingAnalysed: linearSgf }), sgfParser);
 
     expect(entry.status).toBe('running');

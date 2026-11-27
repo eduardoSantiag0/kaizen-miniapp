@@ -101,6 +101,9 @@
             <p class="kz-home-complete-body">
               All {{ totalCount() }} exercises done. Your next practice comes from your next analyzed games.
             </p>
+            @if (deepeningExercise()) {
+              <button type="button" class="kz-home-review" (click)="resumeDeepening()">Resume Go Deeper</button>
+            }
             <button type="button" class="kz-home-complete-continue" (click)="continuePracticing()">Continue practicing</button>
             <button type="button" class="kz-home-review" (click)="reviewExercises()">Review exercises</button>
           </div>
@@ -110,13 +113,18 @@
       <button type="button" class="kz-home-random" (click)="openRandomPracticeDialog()">Random practice</button>
       <p class="kz-home-primary-note">For testing — a separate session from the shared public pool, not your own games.</p>
 
-      @if (generatedSessions().length > 0) {
+      @if (generatedSessions().length > 0 || hasMoreSessions() || sessionListError()) {
         <div class="kz-home-other-sessions">
           <p class="kz-home-other-sessions-title">Other sessions</p>
           @for (other of generatedSessions(); track other.id) {
             <button type="button" class="kz-home-other-session-row" (click)="openSession(other.id)">
-              <span>{{ other.exercises.length }} exercises</span>
+              <span>{{ other.exerciseCount }} exercises</span>
               <span class="kz-home-other-session-progress">{{ sessionProgressLabel(other) }}</span>
+            </button>
+          }
+          @if (hasMoreSessions() || sessionListError()) {
+            <button type="button" class="kz-home-review" [disabled]="loadingSessions()" (click)="loadMoreSessions()">
+              {{ sessionListError() ? 'Retry loading sessions' : 'Load more sessions' }}
             </button>
           }
         </div>

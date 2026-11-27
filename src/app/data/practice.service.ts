@@ -1,6 +1,5 @@
 import { Observable } from 'rxjs';
-import type { ExerciseProgress } from '../exercise/exercise-state';
-import type { DailyPracticeSession, PracticePreferences, StreakInfo } from './practice.model';
+import type { DailyPracticeSession, PracticeSessionKind, PracticeSessionPage, PracticePreferences, StreakInfo } from './practice.model';
 
 /**
  * Abstraction over the Daily Practice backend — kaizan-companion's
@@ -13,6 +12,10 @@ import type { DailyPracticeSession, PracticePreferences, StreakInfo } from './pr
  * backend).
  */
 export abstract class PracticeService {
+  get storageAccountId(): string | null {
+    return 'standalone';
+  }
+
   /** null when the chat hasn't started a session today yet. */
   abstract getTodaySession(): Observable<DailyPracticeSession | null>;
   /** Idempotent — returns the existing session unchanged if one already exists for today. */
@@ -39,12 +42,10 @@ export abstract class PracticeService {
    */
   abstract startRandomPractice(count: number): Observable<DailyPracticeSession>;
   /** Every session for the chat — the one daily session (if started today) plus any generated ones, newest first. Drives Daily Practice Home's session list. */
-  abstract listSessions(): Observable<DailyPracticeSession[]>;
+  abstract listSessions(page?: number, size?: number, kind?: PracticeSessionKind): Observable<PracticeSessionPage>;
   /** A specific session by id, for opening one picked from listSessions() — null if it doesn't belong to this chat. */
   abstract getSession(sessionId: string): Observable<DailyPracticeSession | null>;
   abstract recordResult(sessionId: string, exerciseId: string): Observable<void>;
-  /** Save after every confirmed move, Try another line and Go deeper (handoff v4-3 section 9). */
-  abstract saveProgress(sessionId: string, exerciseId: string, progress: ExerciseProgress): Observable<void>;
   abstract getPreferences(): Observable<PracticePreferences>;
   abstract setPreferences(preferences: PracticePreferences): Observable<void>;
   abstract getStreak(): Observable<StreakInfo>;

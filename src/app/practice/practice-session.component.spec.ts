@@ -1,10 +1,12 @@
+import { HttpErrorResponse } from '@angular/common/http';
 ﻿import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
-import { delay, of } from 'rxjs';
+import { delay, throwError, of } from 'rxjs';
 import { PracticeSessionComponent } from './practice-session.component';
 import { PracticeService } from '../data/practice.service';
 import type { DailyPracticeSession, PracticeExerciseRef, PracticePreferences } from '../data/practice.model';
 import type { ExerciseProgress } from '../exercise/exercise-state';
+import { readPracticeLocal, readPracticePosition, writePracticeLocal } from '../data/practice-local';
 import { GameHistoryService } from '../data/game-history.service';
 import type { GameHistoryDto } from '../data/game-history.model';
 import { TelegramService } from '../core/telegram.service';
@@ -27,9 +29,7 @@ function exerciseRef(overrides: Partial<PracticeExerciseRef> & Pick<PracticeExer
     userSign: 1,
     moveNumber: 1,
     topVariants: 3,
-    currentDepth: 4,
-    selectedVariant: null,
-    step: 1,
+    requiredDepth: 4,
     ...overrides,
   };
 }
@@ -38,7 +38,6 @@ class StubPracticeService extends PracticeService {
   session: DailyPracticeSession = { id: 's1', kind: 'daily', date: '2026-01-01', exercises: [], completed: false };
   preferences: PracticePreferences = { topVariants: 3, continuationDepth: 4, exerciseSource: 'own' as const, exerciseCount: 5 };
   recordedResults: { sessionId: string; id: string }[] = [];
-  savedProgress: { sessionId: string; id: string; progress: ExerciseProgress }[] = [];
 
   override getTodaySession() {
     return of(this.session);
@@ -57,7 +56,7 @@ class StubPracticeService extends PracticeService {
   }
 
   override listSessions() {
-    return of([this.session]);
+    return of({ sessions: [], nextPage: null });
   }
 
   override getSession(sessionId: string) {
@@ -78,17 +77,6 @@ class StubPracticeService extends PracticeService {
   }
 
   override setPreferences() {
-    return of(undefined);
-  }
-
-  override saveProgress(sessionId: string, exerciseId: string, progress: ExerciseProgress) {
-    this.savedProgress.push({ sessionId, id: exerciseId, progress });
-    const exercise = this.session.exercises.find((e) => e.id === exerciseId);
-    if (exercise) {
-      exercise.selectedVariant = progress.selectedVariant;
-      exercise.step = progress.step;
-      exercise.currentDepth = progress.currentDepth;
-    }
     return of(undefined);
   }
 
@@ -277,12 +265,14 @@ describe('PracticeSessionComponent', () => {
     expect(fixture.componentInstance.currentExercise()?.id).toBe('e1');
     expect(fixture.componentInstance.isLastExercise()).toBe(false);
 
+    fixture.componentInstance.onExerciseSolved();
     fixture.componentInstance.onDailyNext();
     expect(fixture.componentInstance.currentExercise()?.id).toBe('e2');
     expect(fixture.componentInstance.isLastExercise()).toBe(true);
 
     const router = TestBed.inject(Router);
     spyOn(router, 'navigate');
+    fixture.componentInstance.onExerciseSolved();
     fixture.componentInstance.onDailyNext();
     expect(router.navigate).not.toHaveBeenCalled();
     tick(450); // FINISH_PRACTICE_DELAY_MS — the finished board stays on screen a beat before navigating.
@@ -312,8 +302,137 @@ describe('PracticeSessionComponent', () => {
 
     tick(450);
     expect(router.navigate).not.toHaveBeenCalled();
-    tick(550); // now past the full 1000ms recordResult
+    expect(fixture.componentInstance.finishedLocally()).toBeTrue();
+    tick(550);
+    expect(fixture.componentInstance.completionStatus()).toBe('confirmed');
+    expect(router.navigate).not.toHaveBeenCalled();
+    tick(450);
     expect(router.navigate).toHaveBeenCalledWith(['/practice/complete']);
+  }));
+
+  it('advances with a pending result and clears that result after retry', fakeAsync(() => {
+    create({
+      id: 'retry-session',
+      kind: 'daily',
+      date: '2026-01-01',
+      completed: false,
+      exercises: [exerciseRef({ id: 'e1', gameId: 'g1' }), exerciseRef({ id: 'e2', gameId: 'g2' })],
+    });
+    fixture.detectChanges();
+    tick();
+
+    const record = spyOn(stub, 'recordResult').and.returnValue(throwError(() => new HttpErrorResponse({ status: 0 })));
+    spyOn(console, 'error');
+    fixture.componentInstance.onExerciseSolved();
+    tick(1000);
+    expect(fixture.componentInstance.completionStatus()).toBe('pending_sync');
+    expect(readPracticeLocal('standalone', 'retry-session', 'e1', 'result')).toBe('pending');
+    fixture.componentInstance.onDailyNext();
+    expect(fixture.componentInstance.currentExercise()?.id).toBe('e2');
+    expect(fixture.componentInstance.pendingExerciseNumbers()).toBe('1');
+
+    record.and.returnValue(of(undefined));
+    fixture.componentInstance.retrySync();
+    expect(fixture.componentInstance.pendingExerciseNumbers()).toBe('');
+    expect(readPracticeLocal('standalone', 'retry-session', 'e1', 'result')).toBeNull();
+  }));
+
+  it('keeps the newer session when an earlier request responds late', fakeAsync(() => {
+    const first: DailyPracticeSession = {
+      id: 'slow-session', kind: 'daily', date: '2026-01-01', completed: false,
+      exercises: [exerciseRef({ id: 'e1', gameId: 'g1' })],
+    };
+    const next: DailyPracticeSession = {
+      ...first, id: 'new-session', exercises: [exerciseRef({ id: 'e2', gameId: 'g2' })],
+    };
+    create(first);
+    spyOn(stub, 'getSession').and.callFake((id) =>
+      id === first.id ? of(first).pipe(delay(500)) : of(next),
+    );
+    fixture.detectChanges();
+    fixture.componentRef.setInput('id', next.id);
+    fixture.detectChanges();
+    tick(500);
+
+    expect(fixture.componentInstance.currentExercise()?.id).toBe('e2');
+  }));
+
+  it('keeps unauthorized results pending for a fresh session to retry', fakeAsync(() => {
+    create({
+      id: 'expired-auth', kind: 'daily', date: '2026-01-01', completed: false,
+      exercises: [exerciseRef({ id: 'e1', gameId: 'g1' })],
+    });
+    fixture.detectChanges();
+    const record = spyOn(stub, 'recordResult').and.returnValue(
+      throwError(() => new HttpErrorResponse({ status: 401 })),
+    );
+    spyOn(console, 'error');
+    fixture.componentInstance.onExerciseSolved();
+    tick(2000);
+
+    expect(record).toHaveBeenCalledTimes(1);
+    expect(readPracticeLocal('standalone', 'expired-auth', 'e1', 'result')).toBe('pending');
+    expect(fixture.componentInstance.rejectedExerciseNumbers()).toBe('');
+
+    record.and.returnValue(of(undefined));
+    fixture.componentInstance.retrySync();
+    expect(readPracticeLocal('standalone', 'expired-auth', 'e1', 'result')).toBeNull();
+  }));
+
+  it('does not retry a definitive result rejection or open the completion screen', fakeAsync(() => {
+    create({
+      id: 'rejected-session',
+      kind: 'daily',
+      date: '2026-01-01',
+      completed: false,
+      exercises: [exerciseRef({ id: 'e1', gameId: 'g1' })],
+    });
+    fixture.detectChanges();
+    tick();
+
+    let attempts = 0;
+    spyOn(stub, 'recordResult').and.returnValue(throwError(() => {
+      attempts++;
+      return new HttpErrorResponse({ status: 400 });
+    }));
+    const router = TestBed.inject(Router);
+    spyOn(router, 'navigate');
+    spyOn(console, 'error');
+
+    fixture.componentInstance.onExerciseSolved();
+    fixture.componentInstance.retrySync();
+    fixture.componentInstance.onDailyNext();
+    tick(16000);
+
+    expect(attempts).toBe(1);
+    expect(fixture.componentInstance.rejectedExerciseNumbers()).toBe('1');
+    expect(router.navigate).not.toHaveBeenCalled();
+    writePracticeLocal('standalone', 'rejected-session', 'e1', 'result', null);
+  }));
+
+  it('resumes an expanded exercise even when its original result is already confirmed', fakeAsync(() => {
+    const progress: ExerciseProgress = {
+      selectedVariant: 0, confirmedPlies: 2, progressPhase: 'playing', deepening: true, currentDepth: 6,
+    };
+    writePracticeLocal('standalone', 'deeper-session', 'e1', 'position', progress);
+    create({
+      id: 'deeper-session',
+      kind: 'daily',
+      date: '2026-01-01',
+      completed: false,
+      exercises: [
+        exerciseRef({ id: 'e1', gameId: 'g1', completed: true }),
+        exerciseRef({ id: 'e2', gameId: 'g2' }),
+      ],
+    });
+    fixture.detectChanges();
+    tick();
+
+    expect(fixture.componentInstance.currentExercise()?.id).toBe('e1');
+    expect(fixture.componentInstance.completionStatus()).toBe('confirmed');
+    expect(stub.recordedResults).toEqual([]);
+    expect(fixture.componentInstance.currentProgress()).toEqual(progress);
+    writePracticeLocal('standalone', 'deeper-session', 'e1', 'position', null);
   }));
 
   it('onDailyNext on the last exercise of a generated session returns to the session list, not the completion screen', fakeAsync(() => {
@@ -330,6 +449,7 @@ describe('PracticeSessionComponent', () => {
 
     const router = TestBed.inject(Router);
     spyOn(router, 'navigate');
+    fixture.componentInstance.onExerciseSolved();
     fixture.componentInstance.onDailyNext();
     expect(router.navigate).toHaveBeenCalledWith(['/practice']);
   }));
@@ -369,9 +489,13 @@ describe('PracticeSessionComponent', () => {
     expect(fixture.nativeElement.querySelector('.kz-session-back')).toBeNull();
   }));
 
-  it('onProgressChanged saves through PracticeService (with this session\'s own id) and updates the local session', fakeAsync(() => {
+  it('stores the position locally and restores it when the session is reopened', fakeAsync(() => {
+    const sessionId = 'persisted-session';
+    const progress: ExerciseProgress = {
+      selectedVariant: 0, confirmedPlies: 2, progressPhase: 'playing', deepening: false, currentDepth: 4,
+    };
     create({
-      id: 's1',
+      id: sessionId,
       kind: 'daily',
       date: '2026-01-01',
       completed: false,
@@ -379,51 +503,30 @@ describe('PracticeSessionComponent', () => {
     });
     fixture.detectChanges();
     tick();
-    fixture.detectChanges();
-    stub.savedProgress = []; // ExercisePageComponent also autosaves its initial state on load — isolate the call under test.
 
-    fixture.componentInstance.onProgressChanged({ selectedVariant: 0, step: 2, currentDepth: 6 });
-
-    expect(stub.savedProgress).toEqual([{ sessionId: 's1', id: 'e1', progress: { selectedVariant: 0, step: 2, currentDepth: 6 } }]);
-    expect(fixture.componentInstance.currentExercise()?.selectedVariant).toBe(0);
-    expect(fixture.componentInstance.currentExercise()?.step).toBe(2);
-    expect(fixture.componentInstance.currentExercise()?.currentDepth).toBe(6);
-  }));
-
-  it('onProgressChanged never rewrites an already-completed exercise (review mode)', fakeAsync(() => {
-    create(
-      {
-        id: 's1',
-        kind: 'daily',
-        date: '2026-01-01',
-        completed: true,
-        exercises: [exerciseRef({ id: 'e1', gameId: 'g1', completed: true, step: 3 })],
-      },
-      true,
-    );
-    fixture.detectChanges();
+    fixture.componentInstance.onProgressChanged(progress);
+    expect(stub.recordedResults).toEqual([]);
+    expect(readPracticePosition('standalone', sessionId, 'e1')).toEqual(progress);
+    fixture.componentInstance.retry();
     tick();
-    fixture.detectChanges();
-
-    fixture.componentInstance.onProgressChanged({ selectedVariant: 1, step: 1, currentDepth: 4 });
-
-    expect(stub.savedProgress).toEqual([]);
+    expect(fixture.componentInstance.currentProgress()).toEqual(progress);
+    writePracticeLocal('standalone', sessionId, 'e1', 'position', null);
   }));
 
-  it('passes the exercise its own saved position as the resume progress', fakeAsync(() => {
-    create({
-      id: 's1',
-      kind: 'daily',
-      date: '2026-01-01',
-      completed: false,
-      exercises: [exerciseRef({ id: 'e1', gameId: 'g1', selectedVariant: 0, step: 2, currentDepth: 6 })],
-    });
-    fixture.detectChanges();
-    tick();
-    fixture.detectChanges();
-
-    expect(fixture.componentInstance.currentProgress()).toEqual({ selectedVariant: 0, step: 2, currentDepth: 6 });
-  }));
+  it('isolates local positions and pending results by account, session and exercise', () => {
+    const progress: ExerciseProgress = {
+      selectedVariant: 0, confirmedPlies: 2, progressPhase: 'playing', deepening: false, currentDepth: 4,
+    };
+    writePracticeLocal('101', 's1', 'e1', 'position', progress);
+    writePracticeLocal('101', 's1', 'e1', 'result', 'pending');
+    expect(readPracticePosition('101', 's1', 'e1')).toEqual(progress);
+    expect(readPracticePosition('102', 's1', 'e1')).toBeNull();
+    expect(readPracticePosition('101', 's2', 'e1')).toBeNull();
+    expect(readPracticePosition('101', 's1', 'e2')).toBeNull();
+    expect(readPracticeLocal('102', 's1', 'e1', 'result')).toBeNull();
+    writePracticeLocal('101', 's1', 'e1', 'position', null);
+    writePracticeLocal('101', 's1', 'e1', 'result', null);
+  });
 
   it('renders the exercise-page for the current exercise, with Telegram back returning to /practice (daily mode)', fakeAsync(() => {
     create({ id: 's1', kind: 'daily', date: '2026-01-01', completed: false, exercises: [exerciseRef({ id: 'e1', gameId: 'g1' })] });

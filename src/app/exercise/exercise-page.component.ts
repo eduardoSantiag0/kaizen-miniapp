@@ -20,6 +20,7 @@ import { UnreadableExerciseError, type ExerciseTree } from './exercise-tree';
 import { loadExerciseCollection, loadExerciseFromSgf, type LoadedExercise } from './exercise-source';
 import {
   canUndo,
+  exerciseProgress,
   goDeeper,
   hasMoreToGoDeeper,
   initExerciseState,
@@ -120,7 +121,8 @@ export class ExercisePageComponent {
   readonly exerciseSolved = output<void>();
   /** Daily mode: fires when LineCompleteActions' primary button ("Next exercise"/"Finish practice") is tapped. */
   readonly dailyNext = output<void>();
-  /** Daily mode: fires after every confirmed move, Try another line and Go deeper — the session wrapper persists this via PracticeService.saveProgress (handoff section 9). */
+  /** Daily mode: fires after every confirmed move, Try another line and Go deeper — the session wrapper saves this in the browser. */
+  readonly practiceExerciseId = input<string | null>(null);
   readonly progressChanged = output<ExerciseProgress>();
 
   /**
@@ -153,6 +155,7 @@ export class ExercisePageComponent {
   });
 
   private solvedEmitted = false;
+  private deepening = false;
   readonly state = signal<ExerciseState>({
     screen: 'loading',
     phase: 'play',
@@ -256,19 +259,20 @@ export class ExercisePageComponent {
     // Reruns whenever gameId (or, in daily mode, phase/sgf) changes, so a
     // session wrapper can drive several exercises through this component by
     // rebinding the inputs.
-    effect(() => this.loadGame(this.gameId(), this.phase(), this.sgf()));
-
-    // Save after every confirmed move, Try another line and Go deeper
-    // (handoff v4-3 section 9) — 'play'/'done' are the only stable states;
-    // 'wrong' isn't a confirmed move, and 'reply' is a transient ~900ms
-    // animation this never persists mid-way through.
     effect(() => {
-      if (this.modeOn() !== 'daily') return;
-      const s = this.state();
-      if (s.screen !== 'ready' || (s.phase !== 'play' && s.phase !== 'done')) return;
-
-      this.progressChanged.emit({ selectedVariant: s.selectedVariant, step: s.step, currentDepth: this.currentDepth() });
+      const gameId = this.gameId();
+      const phase = this.phase();
+      const sgf = this.sgf();
+      this.practiceExerciseId();
+      untracked(() => this.loadGame(gameId, phase, sgf));
     });
+
+  }
+
+  private emitProgress(state: ExerciseState): void {
+    if (this.modeOn() !== 'daily') return;
+    const progress = exerciseProgress(state, this.currentDepth(), this.deepening);
+    if (progress) this.progressChanged.emit(progress);
   }
 
   /**
@@ -283,12 +287,11 @@ export class ExercisePageComponent {
    */
   private loadGame(gameId: string, phase: GamePhase | null, sgf: string | null): void {
     this.state.update((s) => ({ ...s, screen: 'loading' }));
+    clearTimeout(this.replyTimer);
     this.solvedEmitted = false;
-    // untracked: progress() changes on every move (via the save round-trip through the
-    // session wrapper), and must not retrigger this reload effect — it, and depth(), are
-    // meant to be read once per exercise load, not reactively afterward (handoff section
-    // 12 open question 4: a preference change applies from the next exercise, not this one).
+    // Read the saved position only when opening the exercise.
     const progress = untracked(() => this.progress());
+    this.deepening = progress?.deepening ?? false;
     this.currentDepth.set(progress?.currentDepth ?? untracked(() => this.depthOn()));
 
     const isDaily = this.modeOn() === 'daily';
@@ -305,9 +308,12 @@ export class ExercisePageComponent {
             exercise.line = { ...exercise.line, variants: exercise.line.variants.slice(0, Math.max(1, topVariants)) };
           }
           this.dailyExercise.set(exercise);
-          this.state.set(
-            progress ? resumeExerciseState(exercise.line, progress, 1 + this.currentDepth()) : initExerciseState(exercise.line),
-          );
+          const restored = progress
+            ? resumeExerciseState(exercise.line, progress, 1 + this.currentDepth())
+            : initExerciseState(exercise.line);
+          this.state.set(restored);
+          if (restored.phase === 'reply') this.scheduleOpponentReply(exercise.line);
+          if (restored.phase === 'done') this.emitSolvedOnce();
         } else {
           const collection = result as LoadedExercise[];
           this.collection.set(collection);
@@ -343,14 +349,23 @@ export class ExercisePageComponent {
     if (!line || current.screen !== 'ready') return;
 
     const next = playVertex(current, line, vertex, this.effectiveMaxPlies());
+    if (next === current) return;
     this.state.set(next);
+    if (next.phase === 'reply' || next.phase === 'done') this.emitProgress(next);
     this.afterMove(next, line);
   }
 
   /** General "undo my last move" recovery — replaces the old preview/Cancel step now that taps play instantly. Also what the 'wrong' phase's "Try again" action calls. */
   onUndo(): void {
     const line = this.line();
-    if (line) this.state.update((s) => undo(s, line));
+    if (!line) return;
+    const previous = this.state();
+    const next = undo(previous, line);
+    this.state.set(next);
+    if (previous.phase === 'play' && previous !== next) {
+      if (next.selectedVariant === null) this.deepening = false;
+      this.emitProgress(next);
+    }
   }
 
   /** Menu mode's Reset tool, and daily mode's "Try another line" (handoff section 6: "goes back to the starting position with the depth reset to the setting"). */
@@ -358,7 +373,10 @@ export class ExercisePageComponent {
     const line = this.line();
     if (!line) return;
     if (this.modeOn() === 'daily') this.currentDepth.set(this.depthOn());
-    this.state.set(resetExercise(line));
+    this.deepening = false;
+    const next = resetExercise(line);
+    this.state.set(next);
+    this.emitProgress(next);
   }
 
   /** Daily mode's "Go deeper +2" (handoff section 7): raises the Continuation Depth by 2 (capped at 10) and reveals that much more of the already-chosen variant. No-op if canGoDeeper() was already false. */
@@ -370,8 +388,10 @@ export class ExercisePageComponent {
     const next = goDeeper(this.state(), line, 1 + nextDepth);
     if (next === this.state()) return;
 
+    this.deepening = true;
     this.currentDepth.set(nextDepth);
     this.state.set(next);
+    this.emitProgress(next);
     if (next.phase === 'reply') this.scheduleOpponentReply(line);
   }
 
@@ -441,6 +461,7 @@ export class ExercisePageComponent {
     this.replyTimer = setTimeout(() => {
       const next = playOpponentReply(this.state(), line);
       this.state.set(next);
+      this.emitProgress(next);
       if (next.phase === 'done') {
         this.telegram.notificationHaptic('success');
         this.emitSolvedOnce();

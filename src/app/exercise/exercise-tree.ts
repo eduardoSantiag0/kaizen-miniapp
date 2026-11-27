@@ -45,25 +45,33 @@ const MAX_PLIES = 11;
 export function buildExerciseTree(root: SgfNode): ExerciseTree {
   const boardSize = Number(root.data['SZ']?.[0] ?? 19);
   const { branchNode, precedingMoves } = walkToBranchPoint(root);
-  if (!branchNode || branchNode.children.length < 2) {
+  const exerciseNode = branchNode ?? (root.data['PL']?.[0] && root.children.length === 1 ? root : null);
+  if (!exerciseNode) {
     throw new UnreadableExerciseError();
   }
 
   let setupBoard = GoBoard.fromDimensions(boardSize);
   for (const vertex of parseVertexList(root.data['AB'])) setupBoard.set(vertex, BLACK);
   for (const vertex of parseVertexList(root.data['AW'])) setupBoard.set(vertex, WHITE);
-  for (const ply of precedingMoves) {
+  const positionMoves = branchNode ? precedingMoves : [];
+  for (const ply of positionMoves) {
     setupBoard = setupBoard.makeMove(ply.sign, ply.vertex, { preventSuicide: true, preventOverwrite: true });
   }
 
-  const previousMove = precedingMoves.length ? precedingMoves[precedingMoves.length - 1] : null;
+  const previousMove = positionMoves.at(-1) ?? null;
 
   const userSign: 1 | -1 = root.data['PL']?.[0] === 'W' ? WHITE : BLACK;
   const opponentSign: 1 | -1 = userSign === BLACK ? WHITE : BLACK;
 
-  const variants: ExerciseVariant[] = branchNode.children
+  const variants: ExerciseVariant[] = exerciseNode.children
     .map((child) => ({ plies: walkMainLine(child) }))
     .filter((variant) => variant.plies.length > 0);
+
+  if (!branchNode && variants.length && !isPlayable(variants[0], setupBoard, userSign)) {
+    throw new UnreadableExerciseError('SGF has an invalid single variation');
+  }
+
+  if (!variants.length) throw new UnreadableExerciseError();
 
   return {
     boardSize,
@@ -73,6 +81,19 @@ export function buildExerciseTree(root: SgfNode): ExerciseTree {
     previousMove,
     variants,
   };
+}
+
+function isPlayable(variant: ExerciseVariant, initial: GoBoard, userSign: 1 | -1): boolean {
+  let board = initial;
+  let sign: 1 | -1 = userSign;
+  for (const ply of variant.plies) {
+    if (ply.sign !== sign) return false;
+    const move = board.analyzeMove(sign, ply.vertex);
+    if (move.pass || move.overwrite || move.suicide || move.ko) return false;
+    board = board.makeMove(sign, ply.vertex, { preventSuicide: true, preventOverwrite: true });
+    sign = sign === BLACK ? WHITE : BLACK;
+  }
+  return true;
 }
 
 /**

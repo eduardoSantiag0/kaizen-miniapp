@@ -59,9 +59,7 @@ treats that as "no session" and offers Start Practice instead of Continue.
       "userSign": 1,
       "moveNumber": 75,
       "topVariants": 3,
-      "currentDepth": 4,
-      "selectedVariant": 0,
-      "step": 2
+      "requiredDepth": 4
     },
     {
       "id": "ex-2",
@@ -74,9 +72,7 @@ treats that as "no session" and offers Start Practice instead of Continue.
       "userSign": -1,
       "moveNumber": 118,
       "topVariants": 3,
-      "currentDepth": 4,
-      "selectedVariant": null,
-      "step": 1
+      "requiredDepth": 4
     }
   ]
 }
@@ -102,16 +98,8 @@ treats that as "no session" and offers Start Practice instead of Continue.
   A chat has at most one `"daily"` session per calendar day (the one
   `GET /practice/streak` reads), and any number of `"generated"` extra
   rounds, none of which ever affect the streak.
-- `topVariants`/`currentDepth`/`selectedVariant`/`step` are this exercise's
-  own **resumable position** (handoff v4-3-kaizen-daily-practice section 9):
-  `topVariants`/`currentDepth` are snapshotted once when the exercise is
-  created from whatever `GET/PUT /practice/preferences` said at that moment,
-  fixed for the exercise's whole lifetime so a later preference change never
-  retroactively invalidates it (section 12, open question 4 — "apply from
-  the next exercise"). `selectedVariant` (null until the user's first move)
-  and `step` are updated by `PUT .../progress` below, and let "Continue
-  practice" reopen an interrupted exercise at its exact saved position
-  instead of from scratch.
+- Each exercise snapshots `topVariants` and its starting `requiredDepth`.
+  The browser stores the explored position and any Go Deeper continuation locally.
 
 ### `POST /practice/today/start`
 
@@ -155,19 +143,31 @@ exposes), preferring ones never used in **any** prior session for this chat
 (daily or generated), never repeating the same position twice within the
 new session, falling back to reuse if fewer than 5 unused positions exist.
 
-### `GET /practice/sessions`
+### `GET /practice/sessions?page=0&size=20&kind=generated`
 
-Every session for the requesting chat — the one `kind: "daily"` session (if
-started today) plus any `kind: "generated"` extra rounds, most recently
-created first. Drives Daily Practice Home's session list (the chat picks
-one to open; opening it loads that specific session's exercises, not
-necessarily today's). Each entry is the same `SessionDto` shape as
-`GET /practice/today`.
+The authenticated chat's history is sorted newest first. The optional `kind`
+filter accepts `daily` or `generated`. Page numbers start at zero, and
+`size` accepts 1?100.
 
-Note: "Random practice" sessions never appear here — per
-`PracticeService.startRandomPractice`'s own doc comment (kaizen-miniapp),
-those are built entirely client-side from the bundled practice-pool asset
-and never touch the backend at all.
+```json
+{
+  "sessions": [
+    {
+      "id": "session-id",
+      "kind": "generated",
+      "date": "2026-11-27",
+      "completed": false,
+      "exerciseCount": 5,
+      "completedCount": 2
+    }
+  ],
+  "nextPage": null
+}
+```
+
+`nextPage` is null on the last page. The summary contains no exercise
+objects or SGFs. The Home loads the current daily session from
+`POST /practice/today/start` and requests generated summaries separately.
 
 ### `GET /practice/sessions/{sessionId}`
 
@@ -176,15 +176,16 @@ requesting chat (same IDOR-by-ownership pattern as
 `DELETE /history/{id}`/the result route below). Backs opening one entry
 from `GET /practice/sessions`' list.
 
-### `POST /practice/today/exercises/{exerciseId}/result`
+### `POST /practice/sessions/{sessionId}/exercises/{exerciseId}/result`
 
-No body. Marks one exercise in **today's** session `completed: true` (404 if
-`exerciseId` doesn't belong to the requesting chat's current session — same
-IDOR-by-ownership pattern as `DELETE /history/{id}`); once every exercise in
-the session is completed, the session itself becomes `completed: true`
-(returned on the next `GET /practice/today`). No per-exercise
-correct/incorrect outcome is tracked — the route only records that the
-exercise was finished.
+No body. Marks an exercise in the specified daily or generated session as completed.
+Both write routes return `404` unless the exercise belongs to the specified session
+and that session belongs to the authenticated chat. Completing every exercise
+marks the session as completed. The endpoint returns `204` when the
+same result is submitted again. Result updates within a session are
+serialized in the database and each exercise changes to completed at
+most once. Network errors and timeouts leave the result pending for
+retry. Definitive HTTP rejections stop automatic retry.
 
 Response: `204 No Content`.
 
@@ -209,32 +210,24 @@ sections 5 and 7) does the exact ply arithmetic against default 4
 ("M = 4 gives 5 plies: you·reply·you·reply·you — 3 moves for the user") and
 is the more authoritative, recently-confirmed source — **4 is correct**, not 6.
 
-### `PUT /practice/today/exercises/{exerciseId}/progress`
+### Browser-local practice
 
-```json
-{ "selectedVariant": 0, "step": 2, "currentDepth": 6 }
-```
-
-Saves one exercise's resumable position (handoff v4-3-kaizen-daily-practice
-section 9) — same IDOR-by-ownership 404 as the result route above.
-`selectedVariant` is `null` until the user's first move picks one of the
-exercise's accepted candidates, after which it's fixed; `step` is the 1-based
-user move currently expected; `currentDepth` only ever grows, by Go deeper
-(`min(10, currentDepth + 2)`) — never shrinks, and is otherwise untouched by
-a later `PUT /practice/preferences` (see `GET /practice/today`'s note on
-`topVariants`/`currentDepth` being snapshotted per exercise).
-
-Called after every confirmed move, Try another line and Go deeper — *not*
-after an incorrect/illegal attempt (nothing confirmed to save) or mid the
-~900ms opponent-reply animation (transient, not a stable position).
-
-Response: `204 No Content`.
+The browser stores the position by Telegram account, session, and exercise.
+`confirmedPlies` includes every applied move. A position awaiting the opponent's
+response resumes using the next move from the SGF. Solving an exercise queues
+its idempotent result POST. The player can advance while a result is pending.
+Official session completion and streak use only confirmed results.
 
 ### `GET /practice/streak`
 
 ```json
-{ "currentStreak": 4, "last7Days": [false, true, true, true, true, true, true] }
+{ "currentStreak": 4, "last7Days": [false, true, true, true, true, true, true], "date": "2026-11-27", "timeZone": "America/Sao_Paulo" }
 ```
+
+Daily session dates and streaks use the same configured product calendar.
+`kaizan.practice.time-zone` defaults to `America/Sao_Paulo`. The Home
+formats the date supplied by the daily session, and the streak strip
+uses the date supplied by this response.
 
 `last7Days` is oldest-first, 7 entries, the last one being today. No
 dedicated table needed — both are derivable from `daily_session_db` rows

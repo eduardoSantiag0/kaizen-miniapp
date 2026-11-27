@@ -2,10 +2,10 @@ import { Injectable, inject } from '@angular/core';
 import { map, Observable, of } from 'rxjs';
 import { GameHistoryService } from './game-history.service';
 import { PracticeService } from './practice.service';
-import { DEFAULT_PRACTICE_PREFERENCES, type DailyPracticeSession, type PracticePreferences, type PracticeSessionKind, type StreakInfo } from './practice.model';
-import type { ExerciseProgress } from '../exercise/exercise-state';
+import { readPracticePosition, writePracticeLocal } from './practice-local';
+import { DEFAULT_PRACTICE_PREFERENCES, type DailyPracticeSession, PracticeSessionPage, type PracticePreferences, type PracticeSessionKind, type StreakInfo } from './practice.model';
 import { SgfParserService } from '../sgf/sgf-parser.service';
-import { asCandidates, cloneSession, localIso, newSessionId, pickExercises, todayIso } from './practice-exercise-picker';
+import { asCandidates, cloneSession, PRACTICE_TIME_ZONE, newSessionId, pickExercises, todayIso } from './practice-exercise-picker';
 
 const STREAK_STRIP_DAYS = 7;
 
@@ -90,8 +90,17 @@ export class MockPracticeService extends PracticeService {
   }
 
   /** Newest first, so a freshly-generated session (or today's daily one, once it exists) leads the list. */
-  listSessions(): Observable<DailyPracticeSession[]> {
-    return of([...this.sessions].reverse().map(cloneSession));
+  listSessions(page = 0, size = 20, kind?: PracticeSessionKind): Observable<PracticeSessionPage> {
+    const sessions = this.sessions.filter((session) => !kind || session.kind === kind).reverse();
+    const start = page * size;
+    return of({
+      sessions: sessions.slice(start, start + size).map(({ id, kind, date, completed, exercises }) => ({
+        id, kind, date, completed,
+        exerciseCount: exercises.length,
+        completedCount: exercises.filter((exercise) => exercise.completed).length,
+      })),
+      nextPage: start + size < sessions.length ? page + 1 : null,
+    });
   }
 
   getSession(sessionId: string): Observable<DailyPracticeSession | null> {
@@ -110,17 +119,6 @@ export class MockPracticeService extends PracticeService {
     return of(undefined);
   }
 
-  saveProgress(sessionId: string, exerciseId: string, progress: ExerciseProgress): Observable<void> {
-    const session = this.sessions.find((s) => s.id === sessionId);
-    const exercise = session?.exercises.find((e) => e.id === exerciseId);
-    if (exercise) {
-      exercise.selectedVariant = progress.selectedVariant;
-      exercise.step = progress.step;
-      exercise.currentDepth = progress.currentDepth;
-      this.persist();
-    }
-    return of(undefined);
-  }
 
   getPreferences(): Observable<PracticePreferences> {
     return of({ ...this.preferences });
@@ -147,11 +145,12 @@ export class MockPracticeService extends PracticeService {
     // must not count as a practiced day, or the streak would climb on its
     // own for a chat that never actually practiced.
     const isDoneOn = (date: Date) => {
-      const session = this.findDailySession(localIso(date));
+      const session = this.findDailySession(date.toISOString().slice(0, 10));
       return session?.completed === true && session.exercises.length > 0;
     };
 
-    const today = new Date();
+    const date = todayIso();
+    const today = new Date(`${date}T00:00:00Z`);
 
     let cursor = today;
     if (!isDoneOn(cursor)) cursor = addDays(cursor, -1);
@@ -167,7 +166,7 @@ export class MockPracticeService extends PracticeService {
       last7Days.push(isDoneOn(addDays(today, -i)));
     }
 
-    return of({ currentStreak, last7Days });
+    return of({ currentStreak, last7Days, date, timeZone: PRACTICE_TIME_ZONE });
   }
 
   private findDailySession(date: string): DailyPracticeSession | undefined {
@@ -189,14 +188,42 @@ export class MockPracticeService extends PracticeService {
 
 function addDays(date: Date, delta: number): Date {
   const result = new Date(date);
-  result.setDate(result.getDate() + delta);
+  result.setUTCDate(result.getUTCDate() + delta);
   return result;
 }
 
 function loadSessions(): DailyPracticeSession[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as DailyPracticeSession[]) : [];
+    if (!raw) return [];
+    const sessions = JSON.parse(raw) as (Omit<DailyPracticeSession, 'exercises'> & {
+      exercises: (DailyPracticeSession['exercises'][number] & {
+        currentDepth?: number;
+        selectedVariant?: number | null;
+        step?: number;
+      })[];
+    })[];
+    let migrated = false;
+    for (const session of sessions) {
+      for (const exercise of session.exercises) {
+        const { currentDepth, selectedVariant, step } = exercise;
+        if (currentDepth === undefined) continue;
+        exercise.requiredDepth = currentDepth;
+        if (selectedVariant != null && Number.isInteger(step) && step! >= 1 &&
+            !readPracticePosition('standalone', session.id, exercise.id)) {
+          writePracticeLocal('standalone', session.id, exercise.id, 'position', {
+            selectedVariant, confirmedPlies: (step! - 1) * 2, currentDepth,
+            progressPhase: 'playing', deepening: false,
+          });
+        }
+        delete exercise.currentDepth;
+        delete exercise.selectedVariant;
+        delete exercise.step;
+        migrated = true;
+      }
+    }
+    if (migrated) saveSessions(sessions);
+    return sessions;
   } catch {
     return []; // Corrupt/unavailable storage degrades to "no sessions yet", not a hard failure.
   }

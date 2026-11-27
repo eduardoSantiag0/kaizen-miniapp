@@ -18,9 +18,7 @@ function exerciseRef(overrides: Partial<PracticeExerciseRef> & Pick<PracticeExer
     userSign: 1,
     moveNumber: 75,
     topVariants: 3,
-    currentDepth: 4,
-    selectedVariant: null,
-    step: 1,
+    requiredDepth: 4,
     ...overrides,
   };
 }
@@ -46,7 +44,7 @@ class StubPracticeService extends PracticeService {
   }
 
   override listSessions() {
-    return of([this.session]);
+    return of({ sessions: [], nextPage: null });
   }
 
   override getSession() {
@@ -54,10 +52,6 @@ class StubPracticeService extends PracticeService {
   }
 
   override recordResult() {
-    return of(undefined);
-  }
-
-  override saveProgress() {
     return of(undefined);
   }
 

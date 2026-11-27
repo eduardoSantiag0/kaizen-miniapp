@@ -51,46 +51,51 @@ export function loadingState(): Pick<ExerciseState, 'screen'> {
   return { screen: 'loading' };
 }
 
-/** The minimal, serializable shape a daily-mode exercise resumes from — handoff v4-3-kaizen-daily-practice section 9. */
 export interface ExerciseProgress {
   selectedVariant: number | null;
-  step: number;
+  confirmedPlies: number;
+  progressPhase: 'playing' | 'awaiting_reply' | 'completed';
+  deepening: boolean;
   currentDepth: number;
 }
 
-/**
- * Rebuilds the exact state a daily-mode exercise was left in, instead of
- * starting it from scratch — "Continue practice" reopens the first unsolved
- * exercise at the saved position (handoff section 4/9). `maxPlies` is the
- * caller's `1 + progress.currentDepth` (same unit playVertex/goDeeper use).
- * A null/unset selectedVariant resumes exactly like initExerciseState.
- */
+export function exerciseProgress(state: ExerciseState, currentDepth: number, deepening = false): ExerciseProgress | null {
+  if (state.screen !== 'ready' || state.phase === 'wrong') return null;
+  return {
+    selectedVariant: state.selectedVariant,
+    confirmedPlies: (state.step - 1) * 2 + (state.phase === 'play' ? 0 : 1),
+    progressPhase: state.phase === 'play' ? 'playing' : state.phase === 'reply' ? 'awaiting_reply' : 'completed',
+    deepening,
+    currentDepth,
+  };
+}
+
 export function resumeExerciseState(tree: ExerciseTree, progress: ExerciseProgress, maxPlies: number): ExerciseState {
   const base = initExerciseState(tree);
   if (progress.selectedVariant === null) return base;
 
   const variant = tree.variants[progress.selectedVariant];
-  if (!variant) return base; // out-of-range (e.g. stale data) — fall back to a fresh start rather than throw.
+  if (!variant) return base;
 
   const totalSteps = Math.ceil(Math.min(maxPlies, variant.plies.length) / 2);
-  const step = Math.min(Math.max(progress.step, 1), Math.max(totalSteps, 1));
-  const isDone = step >= totalSteps;
-  // 'done' means the final user move is already played, with no trailing reply shown
-  // (playVertex goes straight to 'done' once isLastStep, never animating one more reply) —
-  // an odd ply count. Still mid-line ('play'), the board stops one pair of plies short of
-  // the next expected user move — an even count, same as boardAtStepStart's own convention.
-  const pliesPlayed = isDone ? (totalSteps - 1) * 2 + 1 : (step - 1) * 2;
-  const { board, lastMove } = replayPlies(tree, progress.selectedVariant, pliesPlayed);
+  const savedPhase = progress.progressPhase;
+  const phase = savedPhase === 'completed' ? 'done' : savedPhase === 'awaiting_reply' ? 'reply' : 'play';
+  const plies = progress.confirmedPlies;
+  if (!Number.isInteger(plies) || plies < 0 || plies > totalSteps * 2 - 1 ||
+      (phase === 'play' ? plies % 2 !== 0 : plies % 2 !== 1) ||
+      (phase === 'done' && plies !== totalSteps * 2 - 1) ||
+      (phase === 'reply' && plies >= totalSteps * 2 - 1)) return base;
 
+  const { board, lastMove } = replayPlies(tree, progress.selectedVariant, plies);
   return {
     ...base,
     selectedVariant: progress.selectedVariant,
     totalSteps,
-    step,
-    phase: isDone ? 'done' : 'play',
+    step: Math.floor(plies / 2) + 1,
+    phase,
     board,
     lastMove,
-    turnSign: tree.userSign,
+    turnSign: phase === 'reply' ? tree.opponentSign : tree.userSign,
   };
 }
 
@@ -271,10 +276,9 @@ export function undo(state: ExerciseState, tree: ExerciseTree): ExerciseState {
     return {
       ...state,
       phase: 'play',
-      board: boardAtStepStart(tree, state.selectedVariant, state.step),
+      ...replayPlies(tree, state.selectedVariant, (state.step - 1) * 2),
       illegal: null,
       wrongMove: null,
-      lastMove: lastMoveBeforeStep(tree, state.selectedVariant, state.step),
       turnSign: tree.userSign,
     };
   }
@@ -303,10 +307,9 @@ export function undo(state: ExerciseState, tree: ExerciseTree): ExerciseState {
     ...state,
     phase: 'play',
     step: targetStep,
-    board: boardAtStepStart(tree, state.selectedVariant!, targetStep),
+    ...replayPlies(tree, state.selectedVariant!, (targetStep - 1) * 2),
     illegal: null,
     wrongMove: null,
-    lastMove: lastMoveBeforeStep(tree, state.selectedVariant!, targetStep),
     turnSign: tree.userSign,
   };
 }
@@ -367,24 +370,6 @@ export function toggleHint(state: ExerciseState): ExerciseState {
 
 export function toggleZoom(state: ExerciseState): ExerciseState {
   return { ...state, zoomedIn: !state.zoomedIn };
-}
-
-function boardAtStepStart(tree: ExerciseTree, variantIndex: number, step: number): GoBoard {
-  const plies = tree.variants[variantIndex].plies;
-  let board = tree.setupBoard.clone();
-  for (let i = 0; i < (step - 1) * 2; i++) {
-    const ply = plies[i];
-    if (!ply) break;
-    board = board.makeMove(ply.sign, ply.vertex, { preventSuicide: true, preventOverwrite: true });
-  }
-  return board;
-}
-
-function lastMoveBeforeStep(tree: ExerciseTree, variantIndex: number, step: number): ExerciseState['lastMove'] {
-  const plies = tree.variants[variantIndex].plies;
-  const index = (step - 1) * 2 - 1;
-  const ply = plies[index];
-  return ply ? { vertex: ply.vertex, sign: ply.sign } : null;
 }
 
 /**

@@ -1,6 +1,6 @@
 ﻿import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
-import { map, of } from 'rxjs';
+import { of } from 'rxjs';
 import { PracticeSettingsComponent } from './practice-settings.component';
 import { PracticeService } from '../data/practice.service';
 import { DEFAULT_PRACTICE_PREFERENCES, type PracticePreferences } from '../data/practice.model';
@@ -26,7 +26,7 @@ class StubPracticeService extends PracticeService {
   }
 
   override listSessions() {
-    return this.startTodaySession().pipe(map((session) => [session]));
+    return of({ sessions: [], nextPage: null });
   }
 
   override getSession() {
@@ -44,10 +44,6 @@ class StubPracticeService extends PracticeService {
   override setPreferences(preferences: PracticePreferences) {
     this.setPreferencesCalls.push(preferences);
     this.preferences = { ...preferences };
-    return of(undefined);
-  }
-
-  override saveProgress() {
     return of(undefined);
   }
 

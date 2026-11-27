@@ -2,6 +2,7 @@ import { parse } from '@sabaki/sgf';
 import { buildExerciseTree, type ExerciseTree } from './exercise-tree';
 import {
   canUndo,
+  exerciseProgress,
   goDeeper,
   hasMoreToGoDeeper,
   hintVertex,
@@ -317,12 +318,12 @@ describe('exercise state machine', () => {
     );
 
     it('resumes exactly like a fresh start when no variant was picked yet', () => {
-      const state = resumeExerciseState(longVariantTree, { selectedVariant: null, step: 1, currentDepth: 4 }, 5);
+      const state = resumeExerciseState(longVariantTree, { selectedVariant: null, confirmedPlies: 0, progressPhase: 'playing', deepening: false, currentDepth: 4 }, 5);
       expect(state).toEqual(initExerciseState(longVariantTree));
     });
 
     it('resumes mid-line, with the board replayed up to the saved step', () => {
-      const state = resumeExerciseState(longVariantTree, { selectedVariant: 0, step: 2, currentDepth: 4 }, 5);
+      const state = resumeExerciseState(longVariantTree, { selectedVariant: 0, confirmedPlies: 2, progressPhase: 'playing', deepening: false, currentDepth: 4 }, 5);
 
       expect(state.phase).toBe('play');
       expect(state.selectedVariant).toBe(0);
@@ -335,7 +336,7 @@ describe('exercise state machine', () => {
     });
 
     it('resumes already-done exercises at the Exercise Complete screen, board included', () => {
-      const state = resumeExerciseState(longVariantTree, { selectedVariant: 0, step: 3, currentDepth: 4 }, 5);
+      const state = resumeExerciseState(longVariantTree, { selectedVariant: 0, confirmedPlies: 5, progressPhase: 'completed', deepening: false, currentDepth: 4 }, 5);
 
       expect(state.phase).toBe('done');
       expect(state.step).toBe(3);
@@ -344,12 +345,35 @@ describe('exercise state machine', () => {
       expect(state.lastMove).toEqual({ vertex: [4, 6], sign: 1 });
     });
 
+    it('preserves the next move when resuming at the final step', () => {
+      const state = resumeExerciseState(longVariantTree, { selectedVariant: 0, confirmedPlies: 4, progressPhase: 'playing', deepening: false, currentDepth: 4 }, 5);
+      expect(state.phase).toBe('play');
+      expect(state.step).toBe(3);
+      expect(state.board.get([4, 6])).toBe(0);
+    });
+
+    it('restores Go Deeper while the opponent reply is pending', () => {
+      const done = resumeExerciseState(longVariantTree,
+        { selectedVariant: 0, confirmedPlies: 3, progressPhase: 'completed', deepening: false, currentDepth: 2 }, 3);
+      const deeper = goDeeper(done, longVariantTree, 5);
+      const progress = exerciseProgress(deeper, 4, true)!;
+      expect(progress).toEqual({ selectedVariant: 0, confirmedPlies: 3, progressPhase: 'awaiting_reply', deepening: true, currentDepth: 4 });
+
+      const resumed = resumeExerciseState(longVariantTree, progress, 5);
+      expect(resumed.phase).toBe('reply');
+      expect(resumed.board.signMap).toEqual(deeper.board.signMap);
+      const ready = playOpponentReply(resumed, longVariantTree);
+      expect(ready.phase).toBe('play');
+      expect(ready.step).toBe(3);
+      expect(ready.board.get([5, 3])).toBe(-1);
+    });
+
     it('matches playing the line move by move, for the same saved step', () => {
       let played = initExerciseState(longVariantTree);
       played = playVertex(played, longVariantTree, [4, 2], 5); // ec
       played = playOpponentReply(played, longVariantTree); // fc, step -> 2
 
-      const resumed = resumeExerciseState(longVariantTree, { selectedVariant: 0, step: 2, currentDepth: 4 }, 5);
+      const resumed = resumeExerciseState(longVariantTree, { selectedVariant: 0, confirmedPlies: 2, progressPhase: 'playing', deepening: false, currentDepth: 4 }, 5);
 
       expect(resumed.board.signMap).toEqual(played.board.signMap);
       expect(resumed.step).toBe(played.step);
@@ -357,7 +381,7 @@ describe('exercise state machine', () => {
     });
 
     it('falls back to a fresh start for an out-of-range saved variant', () => {
-      const state = resumeExerciseState(longVariantTree, { selectedVariant: 99, step: 2, currentDepth: 4 }, 5);
+      const state = resumeExerciseState(longVariantTree, { selectedVariant: 99, confirmedPlies: 2, progressPhase: 'playing', deepening: false, currentDepth: 4 }, 5);
       expect(state).toEqual(initExerciseState(longVariantTree));
     });
   });

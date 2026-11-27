@@ -1,7 +1,10 @@
-import { Component, DestroyRef, computed, effect, inject, input, signal } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
+import { Component, DestroyRef, computed, effect, inject, input, signal, untracked } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
-import { Subscription, catchError, combineLatest, of, retry, shareReplay, timer } from 'rxjs';
+import { Subscription, finalize, retry, throwError, timeout, TimeoutError, timer } from 'rxjs';
 import { PracticeService } from '../data/practice.service';
+import { isDeepening, readPracticeLocal, readPracticePosition, writePracticeLocal } from '../data/practice-local';
 import type { DailyPracticeSession, PracticeExerciseRef } from '../data/practice.model';
 import { ExercisePageComponent } from '../exercise/exercise-page.component';
 import type { ExerciseProgress } from '../exercise/exercise-state';
@@ -9,21 +12,7 @@ import { PaperBackgroundComponent } from '../shared/paper-background/paper-backg
 
 type Screen = 'loading' | 'ready' | 'error';
 
-/**
- * Finish practice (last exercise of a daily session) used to call
- * router.navigate(['/practice/complete']) the instant it was tapped —
- * reported as "Finish practice doesn't leave the stone at the intersection":
- * the final correct move's stone is actually on the board (confirmed by
- * driving the real app), but the board is torn down for the completion
- * screen so abruptly that the player never perceives it having landed. This
- * delay (same idea as ExercisePageComponent's OPPONENT_REPLY_DELAY_MS) gives
- * the finished board a beat on screen before the completion screen replaces it.
- * Also now waits on the last exercise's own recordResult (see lastRecordResult$)
- * — without that, a slow/retrying request could still be in flight when
- * /practice/complete re-fetches the session, which would then show the session
- * as not-yet-done (wrong streak, "Continue practice" looping back into the
- * exercise the player already solved).
- */
+type CompletionStatus = 'not_completed' | 'pending_sync' | 'confirmed';
 const FINISH_PRACTICE_DELAY_MS = 450;
 
 /**
@@ -55,17 +44,32 @@ export class PracticeSessionComponent {
   readonly screen = signal<Screen>('loading');
   private readonly session = signal<DailyPracticeSession | null>(null);
   private readonly currentExerciseId = signal<string | null>(null);
-  /** "Review exercises" (handoff section 8): starts at exercise 1 regardless of completion, and never re-records a result — see onExerciseSolved. */
-  private readonly reviewMode = signal(false);
-  /** Set when Daily Practice Home's exercise list was tapped directly (not Start/Continue practice) — opens that one exercise instead of the first unsolved one. */
-  private readonly requestedExerciseId = signal<string | null>(null);
-
   private readonly destroyRef = inject(DestroyRef);
   private finishSub?: Subscription;
-  /** The most recent exercise's recordResult, settled (success or swallowed error) — see
-   * onExerciseSolved/onDailyNext. Starts pre-resolved so a session with no completions
-   * yet (or review mode, which never calls recordResult) never blocks Finish practice. */
-  private lastRecordResult$ = of<void>(undefined);
+  private loadSub?: Subscription;
+  private readonly pendingResults = signal(new Set<string>());
+  private readonly rejectedResults = signal(new Set<string>());
+  private readonly syncingResults = signal(new Set<string>());
+  private readonly positions = signal(new Map<string, ExerciseProgress>());
+  readonly finishedLocally = signal(false);
+
+  readonly completionStatus = computed<CompletionStatus>(() => {
+    const exercise = this.currentExercise();
+    if (exercise?.completed) return 'confirmed';
+    return exercise && this.pendingResults().has(exercise.id) ? 'pending_sync' : 'not_completed';
+  });
+
+  readonly pendingExerciseNumbers = computed(() =>
+    this.exerciseNumbers((id) => this.pendingResults().has(id) && !this.rejectedResults().has(id)),
+  );
+  readonly rejectedExerciseNumbers = computed(() => this.exerciseNumbers((id) => this.rejectedResults().has(id)));
+  readonly syncingCompletion = computed(() => this.syncingResults().size > 0);
+
+  private exerciseNumbers(matches: (id: string) => boolean): string {
+    return (this.session()?.exercises ?? [])
+      .flatMap((exercise, index) => matches(exercise.id) ? [index + 1] : [])
+      .join(', ');
+  }
 
   /** A generated ("Random practice") session has no Daily Practice Home streak screen to land on and, outside the real Telegram app, no native BackButton either — so it gets its own on-screen back control (the daily session still relies solely on Telegram's native one, by design — see ExercisePageComponent's showContextBack). */
   readonly isGeneratedSession = computed(() => this.session()?.kind === 'generated');
@@ -93,21 +97,23 @@ export class PracticeSessionComponent {
     return !!session && this.currentIndex() === session.exercises.length - 1;
   });
 
-  /** The exercise's own saved position (handoff v4-3 section 9) — null starts it fresh. */
-  readonly currentProgress = computed<ExerciseProgress | null>(() => {
-    const exercise = this.currentExercise();
-    return exercise ? { selectedVariant: exercise.selectedVariant, step: exercise.step, currentDepth: exercise.currentDepth } : null;
-  });
+  readonly currentProgress = computed(() => this.positions().get(this.currentExerciseId() ?? '') ?? null);
 
   constructor() {
-    this.reviewMode.set(this.route.snapshot.queryParamMap.get('review') === '1');
-    this.requestedExerciseId.set(this.route.snapshot.queryParamMap.get('exerciseId'));
     // `id` (required input) has no value yet during construction — same reason
     // ExercisePageComponent loads via effect() on its own gameId input rather
     // than reading it directly in the constructor body.
-    effect(() => this.load(this.id()));
+    effect(() => {
+      const id = this.id();
+      untracked(() => this.load(id));
+    });
 
-    this.destroyRef.onDestroy(() => this.finishSub?.unsubscribe());
+    const retryOnline = () => this.retrySync();
+    window.addEventListener('online', retryOnline);
+    this.destroyRef.onDestroy(() => {
+      this.finishSub?.unsubscribe();
+      window.removeEventListener('online', retryOnline);
+    });
   }
 
   retry(): void {
@@ -118,93 +124,152 @@ export class PracticeSessionComponent {
     this.router.navigate(['/practice']);
   }
 
-  /** ExercisePageComponent's exerciseSolved (handoff section 6) — skipped once already recorded, so reviewing an already-solved exercise never changes the session result (handoff section 8). Retries a few times before giving up: this request failing silently (the previous behaviour — no error handler at all) is indistinguishable from the player's own completed count randomly falling short of what they actually played. */
   onExerciseSolved(): void {
     const exercise = this.currentExercise();
-    if (!exercise || exercise.completed) return;
+    if (!exercise || exercise.completed || this.pendingResults().has(exercise.id)) return;
 
-    const recordResult$ = this.practice.recordResult(this.id(), exercise.id).pipe(
-      retry({ count: 2, delay: 500 }),
-      shareReplay({ bufferSize: 1, refCount: false }),
-    );
-    // Finish practice (onDailyNext) waits on this before navigating to /practice/complete —
-    // catchError here (not on the subscribe below) so a wait never hangs on a failure, it
-    // just proceeds once this settles either way.
-    this.lastRecordResult$ = recordResult$.pipe(catchError(() => of(undefined)));
-
-    recordResult$.subscribe({
-      next: () => {
-        this.session.update((session) => {
-          if (!session) return session;
-          const exercises = session.exercises.map((e) => (e.id === exercise.id ? { ...e, completed: true } : e));
-          return { ...session, exercises, completed: exercises.every((e) => e.completed) };
-        });
-      },
-      error: (err) => console.error(`Failed to record exercise ${exercise.id} as completed`, err),
-    });
+    const pending = new Set(this.pendingResults()).add(exercise.id);
+    this.pendingResults.set(pending);
+    writePracticeLocal(this.practice.storageAccountId, this.id(), exercise.id, 'result', 'pending');
+    this.syncPendingResults();
   }
 
-  /** ExercisePageComponent's progressChanged (handoff section 9) — fires after every confirmed move, Try another line and Go deeper. Skipped once already recorded, same as onExerciseSolved, so reviewing never rewrites a finished exercise's position. */
+  private syncPendingResults(): void {
+    const session = this.session();
+    if (!session || session.id !== this.id()) return;
+
+    const accountId = this.practice.storageAccountId;
+    for (const exerciseId of this.pendingResults()) {
+      if (this.syncingResults().has(exerciseId) || this.rejectedResults().has(exerciseId)) continue;
+      this.syncingResults.update((ids) => new Set(ids).add(exerciseId));
+      this.practice.recordResult(session.id, exerciseId).pipe(
+        timeout(15000),
+        retry({
+          count: 2,
+          delay: (error) => this.isRetryable(error) ? timer(500) : throwError(() => error),
+        }),
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.syncingResults.update((ids) => {
+          const remaining = new Set(ids);
+          remaining.delete(exerciseId);
+          return remaining;
+        })),
+      ).subscribe({
+        next: () => {
+          writePracticeLocal(accountId, session.id, exerciseId, 'result', null);
+          if (this.id() !== session.id || this.session()?.id !== session.id) return;
+          this.pendingResults.update((ids) => {
+            const remaining = new Set(ids);
+            remaining.delete(exerciseId);
+            return remaining;
+          });
+          this.session.update((current) => {
+            if (!current) return current;
+            const exercises = current.exercises.map((e) => (e.id === exerciseId ? { ...e, completed: true } : e));
+            return { ...current, exercises, completed: exercises.every((e) => e.completed) };
+          });
+          this.finishIfConfirmed();
+        },
+        error: (error) => {
+          console.error(`Failed to record exercise ${exerciseId} as completed`, error);
+          if (error instanceof HttpErrorResponse && error.status >= 400 && error.status < 500 &&
+              error.status !== 401 && !this.isRetryable(error)) {
+            writePracticeLocal(accountId, session.id, exerciseId, 'result', 'rejected');
+            if (this.session()?.id === session.id) {
+              this.rejectedResults.update((ids) => new Set(ids).add(exerciseId));
+            }
+          }
+        },
+      });
+    }
+  }
+
+  private isRetryable(error: unknown): boolean {
+    if (error instanceof TimeoutError) return true;
+    return error instanceof HttpErrorResponse
+      && (error.status === 0 || error.status === 408 || error.status === 429 || error.status >= 500);
+  }
+
+  retrySync(): void {
+    this.syncPendingResults();
+  }
+
   onProgressChanged(progress: ExerciseProgress): void {
     const exercise = this.currentExercise();
-    if (!exercise || exercise.completed) return;
-
-    this.practice
-      .saveProgress(this.id(), exercise.id, progress)
-      .pipe(retry({ count: 2, delay: 500 }))
-      .subscribe({ error: (err) => console.error(`Failed to save progress for exercise ${exercise.id}`, err) });
-    this.session.update((session) => {
-      if (!session) return session;
-      const exercises = session.exercises.map((e) => (e.id === exercise.id ? { ...e, ...progress } : e));
-      return { ...session, exercises };
-    });
+    if (!exercise) return;
+    this.positions.update((positions) => new Map(positions).set(exercise.id, progress));
+    writePracticeLocal(this.practice.storageAccountId, this.id(), exercise.id, 'position', progress);
   }
 
-  /** LineCompleteActions' primary button, "Next exercise"/"Finish practice" (handoff section 6). */
   onDailyNext(): void {
     const session = this.session();
-    const current = this.currentExercise();
-    if (!session || !current) return;
+    if (!session || this.completionStatus() === 'not_completed') return;
 
-    const next = session.exercises[this.currentIndex() + 1];
+    const next = session.exercises[this.currentIndex() + 1] ??
+      session.exercises.find((exercise) => !exercise.completed && !this.pendingResults().has(exercise.id));
     if (next) {
       this.currentExerciseId.set(next.id);
       return;
     }
 
-    if (session.kind === 'daily') {
-      // Finish practice (last exercise) saves the session and opens the completion
-      // screen; Done there returns to Games (handoff v4-3-kaizen-daily-practice section 6/8).
-      // Waits on both the minimum visual delay AND the last exercise's recordResult —
-      // whichever takes longer — so /practice/complete never re-fetches the session before
-      // the backend has actually processed this exercise's completion (see lastRecordResult$).
-      this.finishSub?.unsubscribe();
-      this.finishSub = combineLatest([timer(FINISH_PRACTICE_DELAY_MS), this.lastRecordResult$]).subscribe(() =>
-        this.router.navigate(['/practice/complete']),
-      );
-    } else {
-      // A generated ("Random practice") session never affects the streak, so it gets
-      // no completion screen — just back to the session list on Daily Practice Home.
+    this.finishedLocally.set(true);
+    this.finishIfConfirmed();
+  }
+
+  private finishIfConfirmed(): void {
+    const session = this.session();
+    if (!this.finishedLocally() || !session?.completed || this.finishSub) return;
+    if (session.kind === 'generated') {
       this.router.navigate(['/practice']);
+      return;
     }
+    this.finishSub = timer(FINISH_PRACTICE_DELAY_MS).subscribe(() =>
+      this.router.navigate(['/practice/complete']),
+    );
   }
 
   private load(id: string): void {
+    this.loadSub?.unsubscribe();
+    this.finishSub?.unsubscribe();
+    this.finishSub = undefined;
     this.screen.set('loading');
 
-    this.practice.getSession(id).subscribe({
+    const query = this.route.snapshot.queryParamMap;
+    const requested = query.get('exerciseId');
+    const review = query.get('review') === '1';
+    this.loadSub = this.practice.getSession(id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (session) => {
         if (!session || session.exercises.length === 0) {
           this.router.navigate(['/practice']);
           return;
         }
 
+        const accountId = this.practice.storageAccountId;
+        const positions = new Map<string, ExerciseProgress>();
+        const pending = new Set<string>();
+        const rejected = new Set<string>();
+        for (const exercise of session.exercises) {
+          const position = readPracticePosition(accountId, id, exercise.id);
+          if (position) positions.set(exercise.id, position);
+          const result = readPracticeLocal(accountId, id, exercise.id, 'result');
+          if (exercise.completed) {
+            if (result) writePracticeLocal(accountId, id, exercise.id, 'result', null);
+          } else if (result === 'pending' || result === 'rejected') {
+            pending.add(exercise.id);
+            if (result === 'rejected') rejected.add(exercise.id);
+          }
+        }
+        this.positions.set(positions);
+        this.pendingResults.set(pending);
+        this.rejectedResults.set(rejected);
+        this.finishedLocally.set(false);
         this.session.set(session);
-        const requested = this.requestedExerciseId();
+        this.retrySync();
         const requestedExercise = requested ? session.exercises.find((e) => e.id === requested) : undefined;
         const start =
           requestedExercise ??
-          (this.reviewMode() ? session.exercises[0] : session.exercises.find((e) => !e.completed) ?? session.exercises[0]);
+          session.exercises.find((exercise) => isDeepening(positions.get(exercise.id))) ??
+          (review ? session.exercises[0] : session.exercises.find((e) => !e.completed && !pending.has(e.id)) ?? session.exercises[0]);
         this.currentExerciseId.set(start.id);
         this.screen.set('ready');
       },

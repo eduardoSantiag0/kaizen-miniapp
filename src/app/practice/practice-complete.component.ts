@@ -39,6 +39,7 @@ export class PracticeCompleteComponent {
 
   readonly totalCount = computed(() => this.session()?.exercises.length ?? 0);
   readonly currentStreak = computed(() => this.streak().currentStreak);
+  readonly streakDate = computed(() => this.streak().date);
   readonly last7Days = computed(() => this.streak().last7Days);
 
   /** Today's own daily session, not yet finished — the DailyStreak state (handoff section 8), reached from the Games streak chip before Finish practice. */

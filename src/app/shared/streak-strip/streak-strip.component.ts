@@ -1,4 +1,5 @@
 import { Component, computed, input } from '@angular/core';
+import { todayIso } from '../../data/practice-exercise-picker';
 
 const WEEKDAY_LETTERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -26,10 +27,11 @@ interface StrippedDay {
 export class StreakStripComponent {
   /** Oldest-first, 7 entries, the last one being today — same shape StreakInfo.last7Days returns. */
   readonly days = input.required<boolean[]>();
+  readonly date = input<string>();
 
   readonly strippedDays = computed<StrippedDay[]>(() => {
     const practiced = this.days();
-    const today = new Date().getDay(); // 0 = Sunday, matches WEEKDAY_LETTERS' order
+    const today = new Date(`${this.date() ?? todayIso()}T00:00:00Z`).getUTCDay();
     return practiced.map((wasPracticed, index) => {
       const offsetFromToday = practiced.length - 1 - index;
       const weekday = (((today - offsetFromToday) % 7) + 7) % 7;

@@ -62,6 +62,14 @@ describe('buildExerciseTree', () => {
     expect(() => buildExerciseTree(root)).toThrowError(UnreadableExerciseError);
   });
 
+  it('accepts a single variation from a setup root with a player to move', () => {
+    const tree = buildExerciseTree(parse('(;FF[4]SZ[9]AB[dd]PL[W];W[ee];B[fe])')[0]);
+
+    expect(tree.setupBoard.get([3, 3])).toBe(1);
+    expect(tree.setupBoard.get([4, 4])).toBe(0);
+    expect(tree.variants).toEqual([{ plies: [{ sign: -1, vertex: [4, 4] }, { sign: 1, vertex: [5, 4] }] }]);
+  });
+
   it('defaults to black when PL is absent', () => {
     const sgf = '(;FF[4]SZ[9](;B[ee])(;B[cc]))';
     const root = parse(sgf)[0];

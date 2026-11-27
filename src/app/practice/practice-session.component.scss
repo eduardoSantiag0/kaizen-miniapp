@@ -49,3 +49,13 @@
   color: var(--kz-on-primary);
   font: 700 15px/44px 'IBM Plex Sans', sans-serif;
 }
+
+.kz-session-sync {
+  margin: 8px 16px;
+  color: var(--kz-ink);
+  font: 400 14px/20px 'IBM Plex Sans', sans-serif;
+
+  .kz-session-retry {
+    margin: 0 0 0 4px;
+  }
+}

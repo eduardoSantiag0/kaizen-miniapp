@@ -6,7 +6,7 @@ import { SgfParserService } from '../sgf/sgf-parser.service';
 import type { GameHistoryDto } from './game-history.model';
 
 const EXERCISE_SGF = '(;FF[4]SZ[9]AB[cc]PL[B](;B[ec];W[fc])(;B[gc]))';
-const NO_BRANCH_SGF = '(;FF[4]SZ[9]AB[cc]PL[B];B[ec];W[fc])';
+const NO_BRANCH_SGF = '(;FF[4]SZ[9]AB[cc];B[ec];W[fc])';
 
 function dto(overrides: Partial<GameHistoryDto> = {}): GameHistoryDto {
   return {
@@ -207,7 +207,7 @@ describe('MockPracticeService', () => {
           expect(firstRound.id).not.toBe(secondRound.id);
           expect(firstRound.id).not.toBe(daily.id);
 
-          service.listSessions().subscribe((all) => {
+          service.listSessions().subscribe(({ sessions: all }) => {
             expect(all.map((s) => s.id).sort()).toEqual([daily.id, firstRound.id, secondRound.id].sort());
             expect(all.filter((s) => s.kind === 'daily').length).toBe(1);
             expect(all.filter((s) => s.kind === 'generated').length).toBe(2);

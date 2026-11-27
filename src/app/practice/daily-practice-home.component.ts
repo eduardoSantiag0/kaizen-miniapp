@@ -1,7 +1,8 @@
 import { Component, DestroyRef, computed, inject, signal, viewChild } from '@angular/core';
 import { Router } from '@angular/router';
 import { PracticeService } from '../data/practice.service';
-import { DEFAULT_PRACTICE_PREFERENCES, type DailyPracticeSession, type PracticeExerciseRef, type PracticePreferences } from '../data/practice.model';
+import { isDeepening, readPracticePosition } from '../data/practice-local';
+import { DEFAULT_PRACTICE_PREFERENCES, type DailyPracticeSession, type PracticeExerciseRef, type PracticePreferences, type PracticeSessionSummary } from '../data/practice.model';
 import { TelegramService } from '../core/telegram.service';
 import { PaperBackgroundComponent } from '../shared/paper-background/paper-background.component';
 import { SeigaihaFillComponent } from '../shared/seigaiha-fill/seigaiha-fill.component';
@@ -37,28 +38,38 @@ export class DailyPracticeHomeComponent {
   private readonly randomPracticeDialog = viewChild.required(RandomPracticeDialogComponent);
 
   readonly screen = signal<Screen>('loading');
-  private readonly sessions = signal<DailyPracticeSession[]>([]);
+  readonly dailySession = signal<DailyPracticeSession | null>(null);
+  readonly generatedSessions = signal<PracticeSessionSummary[]>([]);
+  private readonly nextSessionPage = signal<number | null>(null);
+  private sessionListRequest = 0;
+  private failedSessionPage: number | null = null;
+  readonly loadingSessions = signal(false);
+  readonly sessionListError = signal(false);
+  readonly hasMoreSessions = computed(() => this.nextSessionPage() !== null);
   readonly preferences = signal<PracticePreferences>({ ...DEFAULT_PRACTICE_PREFERENCES });
   /** Hidden at 0 and while loading (handoff section 4) — 0 is the signal's own default until the real count arrives. */
   readonly currentStreak = signal(0);
-
-  /** The one always-present auto-generated session for today — null only while still loading. */
-  readonly dailySession = computed(() => this.sessions().find((s) => s.kind === 'daily') ?? null);
-  /** Any "Random practice" rounds the chat has generated — any number of them, listed separately from the daily session, never affecting the streak. */
-  readonly generatedSessions = computed(() => this.sessions().filter((s) => s.kind === 'generated'));
 
   readonly exercises = computed(() => this.dailySession()?.exercises ?? []);
   readonly totalCount = computed(() => this.exercises().length);
   readonly completedCount = computed(() => this.exercises().filter((e) => e.completed).length);
   readonly isComplete = computed(() => this.dailySession()?.completed === true);
+  readonly deepeningExercise = computed(() => {
+    const session = this.dailySession();
+    return session?.exercises.find((exercise) =>
+      isDeepening(readPracticePosition(this.practice.storageAccountId, session.id, exercise.id)),
+    );
+  });
   readonly hasStarted = computed(() => this.completedCount() > 0);
   readonly isEmpty = computed(() => this.totalCount() === 0);
 
   readonly dateLabel = computed(() => {
-    const now = new Date();
-    const weekday = now.toLocaleDateString('en-US', { weekday: 'long' });
-    const month = now.toLocaleDateString('en-US', { month: 'long' });
-    return `${weekday}, ${now.getDate()} ${month}`;
+    const date = this.dailySession()?.date;
+    if (!date) return '';
+    const day = new Date(`${date}T00:00:00Z`);
+    const weekday = day.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' });
+    const month = day.toLocaleDateString('en-US', { month: 'long', timeZone: 'UTC' });
+    return `${weekday}, ${day.getUTCDate()} ${month}`;
   });
 
   /** SessionTrack's trailing label — "3 exercises" / "1 of 3 done" / "3 of 3 done" (section 4). */
@@ -123,15 +134,19 @@ export class DailyPracticeHomeComponent {
   }
 
   /** How many of a generated session's own exercises are done, for its row in the "Other sessions" list. */
-  sessionProgressLabel(session: DailyPracticeSession): string {
+  sessionProgressLabel(session: PracticeSessionSummary): string {
     if (session.completed) return 'Done';
-    const done = session.exercises.filter((e) => e.completed).length;
-    return `${done} of ${session.exercises.length} done`;
+    return `${session.completedCount} of ${session.exerciseCount} done`;
   }
 
   startOrContinue(): void {
     const session = this.dailySession();
     if (session) this.router.navigate(['/practice/session', session.id]);
+  }
+
+  resumeDeepening(): void {
+    const exercise = this.deepeningExercise();
+    if (exercise) this.openExercise(exercise);
   }
 
   reviewExercises(): void {
@@ -194,7 +209,8 @@ export class DailyPracticeHomeComponent {
 
   private fetch(): void {
     this.practice.startTodaySession().subscribe({
-      next: () => {
+      next: (session) => {
+        this.dailySession.set(session);
         this.refreshSessions();
         this.screen.set('ready');
         this.practice.getPreferences().subscribe({
@@ -214,8 +230,31 @@ export class DailyPracticeHomeComponent {
     });
   }
 
-  private refreshSessions(): void {
-    this.practice.listSessions().subscribe((sessions) => this.sessions.set(sessions));
+  loadMoreSessions(): void {
+    if (!this.loadingSessions()) this.refreshSessions(this.failedSessionPage ?? this.nextSessionPage() ?? 0);
+  }
+
+  private refreshSessions(page = 0): void {
+    const request = ++this.sessionListRequest;
+    this.loadingSessions.set(true);
+    this.sessionListError.set(false);
+    this.failedSessionPage = null;
+    this.practice.listSessions(page, 20, 'generated').subscribe({
+      next: ({ sessions, nextPage }) => {
+        if (request !== this.sessionListRequest) return;
+        const existing = page === 0 ? [] : this.generatedSessions();
+        const ids = new Set(existing.map((session) => session.id));
+        this.generatedSessions.set([...existing, ...sessions.filter((session) => !ids.has(session.id))]);
+        this.nextSessionPage.set(nextPage ?? null);
+        this.loadingSessions.set(false);
+      },
+      error: () => {
+        if (request !== this.sessionListRequest) return;
+        this.loadingSessions.set(false);
+        this.sessionListError.set(true);
+        this.failedSessionPage = page;
+      },
+    });
   }
 
   readonly backToGames = (): void => {

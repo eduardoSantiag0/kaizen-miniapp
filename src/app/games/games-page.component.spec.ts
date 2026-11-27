@@ -26,7 +26,7 @@ class StubPracticeService extends PracticeService {
   }
 
   override listSessions() {
-    return of([]);
+    return of({ sessions: [], nextPage: null });
   }
 
   override getSession() {
@@ -42,10 +42,6 @@ class StubPracticeService extends PracticeService {
   }
 
   override setPreferences() {
-    return of(undefined);
-  }
-
-  override saveProgress() {
     return of(undefined);
   }
 

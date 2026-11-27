@@ -19,9 +19,7 @@ function exerciseRef(overrides: Partial<PracticeExerciseRef> & Pick<PracticeExer
     userSign: 1,
     moveNumber: 75,
     topVariants: 3,
-    currentDepth: 4,
-    selectedVariant: null,
-    step: 1,
+    requiredDepth: 4,
     ...overrides,
   };
 }
@@ -66,7 +64,14 @@ class StubPracticeService extends PracticeService {
   }
 
   override listSessions() {
-    return of([this.session, ...this.generatedSessions]);
+    return of({
+      sessions: this.generatedSessions.map(({ id, kind, date, completed, exercises }) => ({
+        id, kind, date, completed,
+        exerciseCount: exercises.length,
+        completedCount: exercises.filter((exercise) => exercise.completed).length,
+      })),
+      nextPage: null,
+    });
   }
 
   override getSession(sessionId: string) {
@@ -82,10 +87,6 @@ class StubPracticeService extends PracticeService {
   }
 
   override setPreferences() {
-    return of(undefined);
-  }
-
-  override saveProgress() {
     return of(undefined);
   }
 

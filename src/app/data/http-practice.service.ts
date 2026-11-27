@@ -4,8 +4,7 @@ import { catchError, finalize, Observable, of, shareReplay, throwError } from 'r
 import { environment } from '../../environments/environment';
 import { TelegramService } from '../core/telegram.service';
 import { PracticeService } from './practice.service';
-import type { ExerciseProgress } from '../exercise/exercise-state';
-import type { DailyPracticeSession, PracticePreferences, StreakInfo } from './practice.model';
+import type { DailyPracticeSession, PracticeSessionKind, PracticeSessionPage, PracticePreferences, StreakInfo } from './practice.model';
 
 /**
  * Real HTTP-backed PracticeService, per
@@ -21,6 +20,15 @@ import type { DailyPracticeSession, PracticePreferences, StreakInfo } from './pr
 export class HttpPracticeService extends PracticeService {
   private readonly http = inject(HttpClient);
   private readonly telegram = inject(TelegramService);
+
+  override get storageAccountId(): string | null {
+    try {
+      const user = JSON.parse(new URLSearchParams(this.telegram.initData).get('user') ?? 'null');
+      return Number.isSafeInteger(user?.id) && user.id > 0 ? String(user.id) : null;
+    } catch {
+      return null;
+    }
+  }
 
   private static readonly BASE = '/kaizan/api/v1/practice';
 
@@ -71,8 +79,11 @@ export class HttpPracticeService extends PracticeService {
     );
   }
 
-  listSessions(): Observable<DailyPracticeSession[]> {
-    return this.http.get<DailyPracticeSession[]>(`${environment.apiBaseUrl}${HttpPracticeService.BASE}/sessions`, this.authHeaders);
+  listSessions(page = 0, size = 20, kind?: PracticeSessionKind): Observable<PracticeSessionPage> {
+    return this.http.get<PracticeSessionPage>(`${environment.apiBaseUrl}${HttpPracticeService.BASE}/sessions`, {
+      ...this.authHeaders,
+      params: kind ? { page, size, kind } : { page, size },
+    });
   }
 
   getSession(sessionId: string): Observable<DailyPracticeSession | null> {
@@ -83,19 +94,12 @@ export class HttpPracticeService extends PracticeService {
 
   recordResult(sessionId: string, exerciseId: string): Observable<void> {
     return this.http.post<void>(
-      `${environment.apiBaseUrl}${HttpPracticeService.BASE}/today/exercises/${exerciseId}/result`,
+      `${environment.apiBaseUrl}${HttpPracticeService.BASE}/sessions/${sessionId}/exercises/${exerciseId}/result`,
       null,
       this.authHeaders,
     );
   }
 
-  saveProgress(sessionId: string, exerciseId: string, progress: ExerciseProgress): Observable<void> {
-    return this.http.put<void>(
-      `${environment.apiBaseUrl}${HttpPracticeService.BASE}/today/exercises/${exerciseId}/progress`,
-      progress,
-      this.authHeaders,
-    );
-  }
 
   getPreferences(): Observable<PracticePreferences> {
     return this.http.get<PracticePreferences>(

@@ -13,7 +13,7 @@
       </div>
     }
     @case ('ready') {
-      <kz-streak-strip class="kz-complete-strip" [days]="last7Days()" />
+      <kz-streak-strip class="kz-complete-strip" [days]="last7Days()" [date]="streakDate()" />
 
       <h1 class="kz-complete-title">
         @if (headlineNumber() !== null) {
